@@ -31,7 +31,7 @@ setup(
         Extensible with plug-ins. Ships with an EJBCA Community backend.
     """,
     keywords="pki ejbca acme server certbot",
-    url="https://github.com/dvtirol/serles",
+    url="https://github.com/dvtirol/serles-acme",
     project_urls={
         "Bug Tracker": "https://github.com/dvtirol/serles-acme/issues",
         "Documentation": "https://serles-acme.readthedocs.io/",

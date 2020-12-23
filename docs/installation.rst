@@ -1,3 +1,5 @@
+.. _installation:
+
 .. |ejbca-host| replace:: localhost:9443
 
 Setting up Serles with Gunicorn
@@ -13,7 +15,7 @@ Gunicorn.
 
     python3 -m venv /opt/serles_venv
     . /opt/serles_venv/bin/activate
-    python3 setup.py install  #inside serles/
+    python3 -m pip install serles-acme
 
 In order to run Serles in production, you will need a WSGI HTTP(s) server. We
 chose gunicorn for this example, which ships with Serles. You do not have to
