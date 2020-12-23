@@ -1,0 +1,209 @@
+---
+- hosts: ad22-1ug2a-2.net.tirol.local
+  connection: network_cli
+  user: ansiblerw
+
+  vars:
+    ansible_network_os: exos
+    cert_store: "/opt/ansible/acme-exos-issue-certifiacates"
+    acme_server: https://acme.intra.tirol.gv.at:8443/directory
+    renew_before_days: 30  # renew when cert will expire in < X days
+
+  tasks:
+  - name:  Gather all legacy facts
+    exos_facts:  # WITHOUT THIS, EXOS-TASKS (e.g. net_put) FAIL SOMETIMES!
+      gather_subset: default
+
+  # you can call this task with --extra_vars (or -e) force_renewal=<irgendwas> to force reissuning of certificates.
+  # WARNING: always use also --limit, otherwise ALL Switches get new certs!
+
+  - name: upload helper scripts to switch
+    net_put:
+      src: "{{ item.src }}"
+      dest: "{{ item.dest }}"
+      protocol: sftp
+    with_items:
+      - { src: "files/acme_port80.py", dest: "/config/acme_port80.py" }
+#      - { src: "files/acme_startp80.py", dest: "/config/acme_startp80.py" }
+
+  - name: make sure cert store exists
+    file:
+      path: "{{ cert_store }}/{{ common_name }}"
+      state: directory
+
+  # I: check certificate expiry (if not exist, assume expired)
+  - name: check certificate expiry
+    # Note: this would fail when the cert doesn't exist, so we overwrite the
+    # failed_when condition to never fail. if the cert didn't exist,
+    # cert_info.expired will be undefined, otherwise cert_info.expired will be
+    # a boolean.
+    openssl_certificate_info:
+      path: "{{ cert_store }}/{{ common_name }}/cert.pem"
+      valid_at:
+        point_1: "+{{ renew_before_days }}d"
+    failed_when: false
+    register: cert_info
+  - set_fact:
+      cert_expired: "{{ force_renewal is defined or cert_info.valid_at.point_1 is not defined or not cert_info.valid_at.point_1 }}"
+
+
+  # -- if not expired, we can skip everything.
+
+  - name: prepare local temporary directory
+    command: mktemp -d
+    register: tempdir
+    when: cert_expired
+
+  # II: if expired, create a new private key for the switch
+  - name: generate private key for the switch
+    openssl_privatekey:
+      # Note: there is a way to generate private keys on the device ("configure
+      # ssl csr ..."), but the generated CSR mangles the common name. since
+      # we'd have to export the private key due to this anyway, we can just
+      # take the easy path and generate it directly on the ansible-host.
+      # Note: openssl_privatekey generates the key in-ram on the ansible-host
+      # and writes it to the remote. writing to exos switches does not work, so
+      # we have to write it to the ansible-host and manually transfer it over.
+      path: "{{ tempdir.stdout }}/privkey-server.pem"
+      size: 3072
+    delegate_to: localhost
+    when: cert_expired
+
+  # III: if expired, create a CSR for the switch hostname
+  - name: Generate a Certificate Signing Request with Subject information
+    openssl_csr:
+      path: "{{ cert_store }}/{{ common_name }}/csr.pem"
+      privatekey_path: "{{ tempdir.stdout }}/privkey-server.pem"
+      country_name: AT
+      organization_name: DVT - Daten-Verarbeitung-Tirol GmbH
+      #email_address:
+      common_name: "{{ common_name }}"
+      subject_alt_name: "DNS:{{ common_name }}"
+    delegate_to: localhost
+    when: cert_expired
+
+  # IV: if expired, upload new privkey to switch
+  - name: create cert dir on switch
+    exos_config:
+      commands: mkdir acme_ssl
+      # XXX: this always says changed!
+    when: cert_expired
+
+  - name: upload private key to switch
+    net_put:
+      src: "{{ tempdir.stdout }}/privkey-server.pem"
+      dest: /config/acme_ssl/pkey.pem
+      protocol: sftp
+    when: cert_expired
+
+  # V: delete private key (if exists)
+  - name: purge privkey from ansible host
+    command: "shred -u {{ tempdir.stdout }}/privkey-server.pem"
+    delegate_to: localhost
+    failed_when: false  # do it even if not generated, just for good measure.
+    when: tempdir.stdout is defined
+
+  - name: generate acme client account private key
+    # this is used for communication between ansible-host and acme-proxy and is
+    # not considered sensitive (you can't get any secret infos from it).
+    openssl_privatekey:
+      path: "{{ tempdir.stdout }}/acme-account-key.pem"
+      size: 3072
+    delegate_to: localhost
+    when: cert_expired
+
+  # VI: if expired, get challenges for freshly created CSR
+  - name: get challenges
+    acme_certificate:
+      account_key_src: "{{ tempdir.stdout }}/acme-account-key.pem"
+      csr: "{{ cert_store }}/{{ common_name }}/csr.pem"
+      fullchain_dest: "{{ cert_store }}/{{ common_name }}/cert.pem"
+      acme_directory: "{{ acme_server }}"
+      remaining_days: "{{ renew_before_days }}"
+      acme_version: 2
+      force: "{{ force_renewal is defined }}"
+    delegate_to: localhost
+    register: acme_challenges
+    when: cert_expired
+
+  # VII: if expired, start port80 server with challenge-config parameters
+  - name: create config file for port80
+    copy:  # WARN: only reads the first token!
+      content: "tokens = ['{{(acme_challenges.challenge_data|default({})|dict2items)[0].value['http-01']['resource_value']}}']"
+      dest: "{{ tempdir.stdout }}/challenges_config.py"
+    when: cert_expired and acme_challenges is changed
+
+  - name: upload challenge config
+    net_put:
+      src: "{{ tempdir.stdout }}/challenges_config.py"
+      dest: /config/acme_tokens.py
+      protocol: sftp
+    when: cert_expired and acme_challenges is changed
+
+  - name: configure and start port80 webserver
+    exos_config:  # WARN: only reads the first token!
+      commands:
+        - "create process acme_port80 python-module acme_port80 start on-demand vr VR-Mgmt"
+        - "start process acme_port80"
+      save_when: changed
+    when: cert_expired and acme_challenges is changed
+
+  # VIII: if expired, wait for port80 to accept connections
+  - name: wait for port80 to come up
+    uri: # https://gist.github.com/mikeifomin/67e233cd461331de16707ef59a07e372
+      url: "http://{{ common_name }}:80/"
+      status_code: 200
+    register: result
+    until: result.status == 200
+    retries: 60
+    delay: 1
+    when: cert_expired and acme_challenges is changed
+
+  # IX: if expired, let acme-server verify challenges, download fullchain to ansible-host
+  - name: get certificate (to local)
+    acme_certificate:
+      account_key_src: "{{ tempdir.stdout }}/acme-account-key.pem"
+      csr: "{{ cert_store }}/{{ common_name }}/csr.pem"
+      fullchain_dest: "{{ cert_store }}/{{ common_name }}/cert.pem"
+      acme_directory: "{{ acme_server }}"
+      remaining_days: "{{ renew_before_days }}"
+      acme_version: 2
+      force: "{{ force_renewal is defined }}"
+      data: "{{ acme_challenges }}"
+    delegate_to: localhost
+    when: cert_expired and acme_challenges is changed
+
+  # -- WARN: if the play fails between these(IX/X) steps, the logic of step
+  # (I) thinks the cert is OK, while it wasn't uploaded. delete the local cert
+  # and retry.
+
+  # X: if expired, upload fullchain to switch
+  - name: upload certificate to switch
+    net_put:
+      src: "{{ cert_store }}/{{ common_name }}/cert.pem"
+      dest: /config/acme_ssl/cert.pem
+      protocol: sftp
+    when: cert_expired and acme_challenges is changed
+
+  # XI: stop port80 server
+  - name: stop port80 webserver
+    exos_config:
+      commands: 
+        - terminate process acme_port80 forceful # graceful not enough
+        - delete process acme_port80
+      save_when: changed
+    when: cert_expired and acme_challenges is changed
+
+### Zertifikats-Wechsel passiert automatisch - kein service restart nötig.
+#  - name: restart macauSwitchSwitchAPI to use new cert
+#    exos_config:
+#      commands: restart process macauSwitchSwitchApi
+#    ignore_errors: yes
+#    when: cert_expired and acme_challenges is changed
+
+  - name: tear down temporary directory
+    file:
+      path: "{{ tempdir.stdout }}"
+      state: absent
+    when: cert_expired
+

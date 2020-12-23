@@ -1,0 +1,65 @@
+[serles]
+# Database to use, given as a URI understood by SQLAlchemy.
+# Note: The database stores the Account id-to-key mapping. Some clients (e.g.
+# certbot) will after registering assume their public key is known to Serles
+# and only identify themselves through their account id. Hence, the database
+# should be persistent. All other data can be ephemeral, and is purged by
+# Serles regularly (/// is relative path, //// absolute. yes, really.).
+# If you don't care about account keys, and given that you are running only 1
+# process and 1 thread, you can use an in-memory database by setting it to
+# "sqlite:///:memory:".
+database = sqlite:////etc/serles/db.sqlite
+# Mariadb is also supported, but you will need to install pymysql from pypi.
+#database = mysql+pymysql://user:passwd@localhost/db_acmeproxy
+
+# <module>[:<classname>] of the backend to load. if classname is not given,
+# defaults to Backend. supports relative imports.
+backend = serles.backends.ejbca:EjbcaBackend
+
+# if you only want to issue certificates for a few subnets, define them in CIDR
+# notation here (newline-seperated):
+allowedServerIpRanges =
+	::1/128
+	127.0.0.0/8
+	10.0.0.0/8
+excludeServerIpRanges =
+	127.0.0.2/32
+
+# if allowedServerIpRanges are set, whether to also verify that a correct PTR
+# record exists:
+verifyPTR = false
+
+# if the CSR does not set a Subject Name, fill it in with this template (you
+# can use the special variable {SAN} to access subjectAltName.dnsName values
+# and {MAIL} to access the requesting user's email address):
+subjectNameTemplate = CN={SAN[0]}
+
+# if set to true, ignore DN from CSR and always create it from the
+# subjectNameTemplate above:
+forceTemplateDN = true
+
+# Backend configuration depends on the loaded backend. This is an example for
+# EJBCABackend.
+[backend]
+# URL of the API endpoint (must be served over TLS):
+apiUrl = https://localhost:9443/ejbca/ejbcaws/ejbcaws?wsdl
+
+# the path to a custom CA bundle to verify the API's certificate, the constants
+# 'default' (built-in certifi bundle) or 'none' (disable verification):
+caBundle = none
+
+# client certificate of the EJBCA-user with permission to issue certificates.
+# This is expected to be a concatenation of both public and private key in PEM
+# format:
+clientCertificate = /etc/serles/client01-privpub.pem
+
+# name of the Certificate Authority, End Entity Profile and Certificate Profile
+# for to-be-generated certs:
+caName = ACMECA
+endEntityProfileName = ACMEEndEntityProfile
+certificateProfileName = ACMEServerProfile
+
+# Username and Enrollment Code for the End Entity. available parameters are
+# {random} (32 chars of [0-9a-f]) and those from the certificate's DN.
+entityUsernameScheme = {CN}
+entityPasswordScheme = {random}

@@ -1,0 +1,3 @@
+#!/bin/sh
+
+gunicorn -c /etc/serles/gunicorn_config.py 'serles:create_app()'
