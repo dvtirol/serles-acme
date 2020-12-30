@@ -1,6 +1,6 @@
-.. _installation:
-
 .. |ejbca-host| replace:: localhost:9443
+
+.. _installation:
 
 Setting up Serles with Gunicorn
 ===============================
