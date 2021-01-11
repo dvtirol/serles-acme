@@ -8,6 +8,6 @@ before_install:
   - pip install codecov
 install:
   - pip install ".[test]" .
-script: python -m pytest
+script: python -m coverage run -m pytest tests
 after_success:
   - python -m codecov
