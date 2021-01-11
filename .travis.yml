@@ -1,13 +1,21 @@
 language: python
 python:
-  - 3.6
+- 3.6
 before_install:
-  - python --version
-  - pip install -U pip
-  - pip install -U pytest
-  - pip install codecov
+- python --version
+- pip install -U pip
+- pip install -U pytest
+- pip install codecov
 install:
-  - pip install ".[test]" .
+- pip install ".[test]" .
 script: python -m coverage run -m pytest tests
 after_success:
-  - python -m codecov
+- python -m codecov
+deploy:
+  provider: pypi
+  user: __token__
+  distributions: "sdist bdist_wheel"
+  password: $PYPI_TOKEN
+  on:
+    tags: true
+    branch: master
