@@ -1,6 +1,8 @@
 Serles: A Tiny and Extensible ACME Server/Proxy
 ===============================================
 
+|travis| |codecov|
+
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
@@ -30,6 +32,9 @@ For whom is this project?
 - You want to build up you own PKI, either for company or home usage
 - You want to automate the issuing process for all your devices
 - You already using another PKI Software and want to use certbot with it
+
+.. |travis| image:: https://travis-ci.org/dvtirol/serles-acme.svg?branch=master
+.. |codecov| image:: https://codecov.io/gh/dvtirol/serles-acme/branch/master/graph/badge.svg?token=JVJRKUU6FU
 
 Architecture
 ------------
