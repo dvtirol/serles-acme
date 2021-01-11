@@ -36,15 +36,25 @@ For whom is this project?
 - You already using another PKI Software and want to use certbot with it
 
 .. |travis| image:: https://travis-ci.org/dvtirol/serles-acme.svg?branch=master
+            :target: https://travis-ci.org/dvtirol/serles-acme
 .. |codecov| image:: https://codecov.io/gh/dvtirol/serles-acme/branch/master/graph/badge.svg?token=JVJRKUU6FU
+             :target: https://codecov.io/gh/dvtirol/serles-acme/branch/master
 .. |gh_stars| image:: https://img.shields.io/github/stars/dvtirol/serles-acme.svg?label=github%20%E2%98%85&style=for-the-badge
+              :target: https://github.com/dvtirol/serles-acme
 .. |contributors| image:: https://img.shields.io/github/contributors/dvtirol/serles-acme.svg?style=for-the-badge
+                  :target: https://github.com/dvtirol/serles-acme
 .. |forks| image:: https://img.shields.io/github/forks/dvtirol/serles-acme.svg?label=github%20forks&style=for-the-badge
+           :target: https://github.com/dvtirol/serles-acme
 .. |pypidl| image:: https://pypip.in/d/serles-acme/badge.svg
+            :target: https://pypi.org/project/serles-acme/
 .. |pypiver| image:: https://pypip.in/v/serles-acme/badge.svg
+             :target: https://pypi.org/project/serles-acme/
 .. |pypiegg| image:: https://pypip.in/egg/serles-acme/badge.svg
+             :target: https://pypi.org/project/serles-acme/
 .. |pypiwheel| image:: https://pypip.in/wheel/serles-acme/badge.svg
+               :target: https://pypi.org/project/serles-acme/
 .. |pypilic| image:: https://pypip.in/license/serles-acme/badge.svg
+             :target: https://pypi.org/project/serles-acme/
 
 Architecture
 ------------
