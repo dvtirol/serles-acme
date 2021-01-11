@@ -1,7 +1,7 @@
 Serles: A Tiny and Extensible ACME Server/Proxy
 ===============================================
 
-|travis| |codecov|
+|travis| |codecov| |pypiver| |pypidl| |pypiwheel| |pypilic|
 
 |gh_stars| |contributors| |forks|
 
@@ -40,6 +40,11 @@ For whom is this project?
 .. |gh_stars| image:: https://img.shields.io/github/stars/dvtirol/serles-acme.svg?label=github%20%E2%98%85&style=for-the-badge
 .. |contributors| image:: https://img.shields.io/github/contributors/dvtirol/serles-acme.svg?style=for-the-badge
 .. |forks| image:: https://img.shields.io/github/forks/dvtirol/serles-acme.svg?label=github%20forks&style=for-the-badge
+.. |pypidl| image:: https://pypip.in/d/serles-acme/badge.svg
+.. |pypiver| image:: https://pypip.in/v/serles-acme/badge.svg
+.. |pypiegg| image:: https://pypip.in/egg/serles-acme/badge.svg
+.. |pypiwheel| image:: https://pypip.in/wheel/serles-acme/badge.svg
+.. |pypilic| image:: https://pypip.in/license/serles-acme/badge.svg
 
 Architecture
 ------------
