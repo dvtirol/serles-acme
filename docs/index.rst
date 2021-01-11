@@ -3,6 +3,8 @@ Serles: A Tiny and Extensible ACME Server/Proxy
 
 |travis| |codecov|
 
+|gh_stars| |contributors| |forks|
+
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
@@ -35,6 +37,9 @@ For whom is this project?
 
 .. |travis| image:: https://travis-ci.org/dvtirol/serles-acme.svg?branch=master
 .. |codecov| image:: https://codecov.io/gh/dvtirol/serles-acme/branch/master/graph/badge.svg?token=JVJRKUU6FU
+.. |gh_stars| image:: https://img.shields.io/github/stars/dvtirol/serles-acme.svg?label=github%20%E2%98%85&style=for-the-badge
+.. |contributors| image:: https://img.shields.io/github/contributors/dvtirol/serles-acme.svg?style=for-the-badge
+.. |forks| image:: https://img.shields.io/github/forks/dvtirol/serles-acme.svg?label=github%20forks&style=for-the-badge
 
 Architecture
 ------------
