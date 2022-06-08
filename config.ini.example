@@ -65,3 +65,10 @@ certificateProfileName = ACMEServerProfile
 # {random} (32 chars of [0-9a-f]) and those from the certificate's DN.
 entityUsernameScheme = {CN}
 entityPasswordScheme = {random}
+
+# Config for the OpenSSL backend. Only for use in preproduction environments!
+[openssl]
+# Paths to the root certificate and unencrypted private key to use for signing.
+# For convenience, a self-signed CA is created if these files do not exist.
+cacert = /tmp/ca.crt
+cakey = /tmp/ca.key
