@@ -51,15 +51,15 @@ class EjbcaBackend:
 
     def __init__(self, config):
         try:
-            clientCertificate = config["backend"]["clientCertificate"]
-            apiUrl = config["backend"]["apiUrl"]
-            caBundle = config["backend"]["caBundle"]
+            clientCertificate = config["ejbca"]["clientCertificate"]
+            apiUrl = config["ejbca"]["apiUrl"]
+            caBundle = config["ejbca"]["caBundle"]
             caBundle = dict(default=True, none=False).get(caBundle, caBundle)
-            self.caName = config["backend"]["caName"]
-            self.endEntityProfileName = config["backend"]["endEntityProfileName"]
-            self.certificateProfileName = config["backend"]["certificateProfileName"]
-            self.entityUsernameScheme = config["backend"]["entityUsernameScheme"]
-            self.entityPasswordScheme = config["backend"]["entityPasswordScheme"]
+            self.caName = config["ejbca"]["caName"]
+            self.endEntityProfileName = config["ejbca"]["endEntityProfileName"]
+            self.certificateProfileName = config["ejbca"]["certificateProfileName"]
+            self.entityUsernameScheme = config["ejbca"]["entityUsernameScheme"]
+            self.entityPasswordScheme = config["ejbca"]["entityPasswordScheme"]
         except KeyError as e:
             raise Exception(f"missing config key {e}")
 

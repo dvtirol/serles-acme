@@ -30,7 +30,7 @@ class MockedClient:
 
 
 good_config = dict(
-    backend=dict(
+    ejbca=dict(
         clientCertificate="",
         apiUrl="https://example.test:8443/foo?",
         caBundle="caBundle",
@@ -55,7 +55,7 @@ class HelperFunctionTester(unittest.TestCase):
 
     def test_dnerror(self):
         config = dict(
-            backend=dict(
+            ejbca=dict(
                 clientCertificate="",
                 apiUrl="https://example.test:8443/foo?",
                 caBundle="caBundle",

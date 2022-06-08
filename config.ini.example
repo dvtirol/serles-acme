@@ -38,9 +38,11 @@ subjectNameTemplate = CN={SAN[0]}
 # subjectNameTemplate above:
 forceTemplateDN = true
 
-# Backend configuration depends on the loaded backend. This is an example for
-# EJBCABackend.
-[backend]
+# Backend configuration depends on the loaded backend. You will only need the
+# section corresponding to the backend enabled above; others can be removed.
+
+# Config for EJBCA the backend. This one is recommended to use in production.
+[ejbca]
 # URL of the API endpoint (must be served over TLS):
 apiUrl = https://localhost:9443/ejbca/ejbcaws/ejbcaws?wsdl
 
