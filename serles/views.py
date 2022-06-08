@@ -152,7 +152,7 @@ class NewOrder(Resource):
         return (
             order.serialized,
             201,
-            {"Location": api.url_for(OrderMain, orderid=order.id)},
+            {"Location": api.url_for(OrderMain, orderid=order.id, _external=True)},
         )
 
 
@@ -297,7 +297,7 @@ class ChallengeMain(Resource):
         return (
             challenge.serialized,
             200,
-            {"Link": f"<{api.url_for(AuthorizationMain, authid=authid)}>;rel=up"},
+            {"Link": f"<{api.url_for(AuthorizationMain, authid=authid, _external=True)}>;rel=up"},
         )
 
 
