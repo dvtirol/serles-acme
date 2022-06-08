@@ -9,7 +9,6 @@ from .models import *
 from .challenge import (
     init_config as c_init_config,
     verify_challenge,
-    pkcs7_to_pem_chain,
     check_csr_and_return_cert,
 )
 from .exceptions import ACMEError
@@ -325,8 +324,6 @@ class CertificateMain(Resource):
 
         cert = cert.serialized
 
-        pem_cert = pkcs7_to_pem_chain(cert)
-
         return make_response(
-            pem_cert, 200, {"Content-Type": "application/pem-certificate-chain"}
+            cert, 200, {"Content-Type": "application/pem-certificate-chain"}
         )

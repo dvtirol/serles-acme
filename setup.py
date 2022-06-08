@@ -18,7 +18,7 @@ setup(
         "Flask-SQLAlchemy",
         "requests",
         "jwcrypto",
-        "cryptography",  # Note: if cryptography<3.1, we also need openssl(1) tool
+        "cryptography >= 3.1",
         "dnspython",
         # for EJBCABackend:
         "requests",

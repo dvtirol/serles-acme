@@ -1,9 +1,11 @@
-# to implement your own backend, create a class Backend with a method sign(self,DER_CSR,DN,[SAN],email) that returns (PKCS7_fullchain,error_or_None).
 import base64
 import csv
 import requests
 import secrets
 import zeep  # fedora package: python3-zeep.noarch
+from cryptography import x509  # python3-cryptography.x86_64
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.backends import default_backend as x509_backend
 
 
 class EjbcaBackend:
@@ -72,6 +74,9 @@ class EjbcaBackend:
     def sign(self, csr, subjectDN, subjectAltNames, email):
         subjectAltName = ",".join(f"DNSNAME={name}" for name in subjectAltNames)
 
+        csr_obj = x509.load_der_x509_csr(csr, x509_backend())
+        csr_der = csr_obj.public_bytes(serialization.Encoding.DER)
+
         # NOTE: this is very hacky and not to spec/rfc4514, but should be
         # enough to extract the CN. Notably, we don't support "+" and "\<hex>".
         dn = next(csv.reader([subjectDN], escapechar="\\", doublequote=False))
@@ -101,15 +106,35 @@ class EjbcaBackend:
                     keyRecoverable=False,
                     sendNotification=(email is not None),
                 ),
-                base64.b64encode(csr),
+                base64.b64encode(csr_der),
                 0,  # CertificateHelper.CERT_REQ_TYPE_PKCS10
                 None,
                 "PKCS7WITHCHAIN",  # CertificateHelper.RESPONSETYPE_PKCS7WITHCHAIN
             )
-            return base64.b64decode(result.data), None
+            pkcs7 = base64.b64decode(result.data)
+            return pkcs7_to_pem_chain(pkcs7), None
         except zeep.exceptions.Fault as e:
             # observed these exception types:
             # - org.cesecore.certificates.certificate.CertificateCreateException
             # - org.ejbca.core.model.ra.raadmin.EndEntityProfileValidationException
             typestr, _, message = e.message.partition(":")
             return None, message
+
+
+def pkcs7_to_pem_chain(pkcs7_input):
+    """ Converts a PKCS#7 cert chain to PEM format.
+
+    Args:
+        pkcs7_input (bytes): the PKCS#7 chain as stored in the database.
+
+    Returns:
+        str: PEM encoded certificate chain as expected by ACME clients.
+    """
+
+    certs = serialization.pkcs7.load_der_pkcs7_certificates(pkcs7_input)
+    return "\n".join(
+        [
+            cert.public_bytes(serialization.Encoding.PEM).decode("ascii")
+            for cert in certs
+        ]
+    )

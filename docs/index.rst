@@ -89,7 +89,7 @@ A backend is simply a class (no inheritance required) and has the following meth
 
     Parameters:  
 
-    - ``csr``: the CSR as coming from the client (in DER-encoded PKCS#10 format)
+    - ``csr``: the CSR as coming from the client (in PEM-encoded PKCS#10 format)
     - ``subjectDN``: The CSR's Distinguished Name as a string or, if absent, one
       created from the template string in the config file.
     - ``subjectAltNames``: a list of domain names (as strings) that are to be
@@ -99,8 +99,8 @@ A backend is simply a class (no inheritance required) and has the following meth
     
     Returns:  
 
-    - on success, the tuple ``(chain_pkcs7_der, None)`` where ``chain_pkcs7_der``
-      is the full DER-encoded PKCS#7 certificate chain.
+    - on success, the tuple ``(pem_chain, None)`` where ``pem_chain`` is the
+      full PEM-encoded certificate chain.
     - on error, the tuple ``(None, error_msg)``, where ``error_msg`` is a string
       (possibly forwarded from the backend) that describes why the CSR has been
       rejected. This is forwarded to the client in a ``badCSR`` problem document.

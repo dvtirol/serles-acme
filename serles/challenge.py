@@ -137,53 +137,6 @@ def http_challenge(challenge):  # RFC8555 §8.3
     return None, None  # no error occurred :)
 
 
-def pkcs7_to_pem_chain(pkcs7_input):
-    """ Converts a PKCS#7 cert chain to PEM format.
-
-    Attempts to use python-cryptography 3.1 or falls back to using the
-    openssl(1) tool.
-
-    Args:
-        pkcs7_input (bytes): the PKCS#7 chain as stored in the database.
-
-    Returns:
-        str: PEM encoded certificate chain as expected by ACME clients.
-    """
-    from cryptography import __version__ as crypto_version
-
-    v = [int(s) if s.isdigit() else -1 for s in crypto_version.split(".")]
-
-    if v[0] > 3 or (v[0] == 3 and v[1] >= 1):  # if cryptography 3.1 or higher:
-        from cryptography.hazmat.primitives.serialization import pkcs7
-
-        certs = serialization.pkcs7.load_der_pkcs7_certificates(pkcs7_input)
-        return "\n".join(
-            [
-                cert.public_bytes(serialization.Encoding.PEM).decode("ascii")
-                for cert in certs
-            ]
-        )
-    else:
-        from subprocess import Popen, PIPE, DEVNULL
-
-        proc = Popen(
-            ["openssl", "pkcs7", "-print_certs", "-inform", "DER"],
-            stdin=PIPE,
-            stdout=PIPE,
-            stderr=DEVNULL,
-        )
-        proc.stdin.write(pkcs7_input)
-        proc.stdin.close()
-        pem_cert = proc.stdout.read().decode("ascii")
-        return "\n".join(
-            [
-                l
-                for l in pem_cert.splitlines()
-                if l and not l.startswith("subject=") and not l.startswith("issuer=")
-            ]
-        )+"\n"
-
-
 def check_csr_and_return_cert(csr_der, order):
     """ validate CSR and pass to backend
 
@@ -195,7 +148,7 @@ def check_csr_and_return_cert(csr_der, order):
         order (Order): the order object that the CSR belongs to
 
     Returns:
-        bytes: the signed certificate and chain in PKCS#7 format (DER encoded)
+        bytes: the signed certificate and chain in PEM format.
 
     Raises:
         ACMEError: CSR was rejected (by us) or the backend refused to sign it.
@@ -226,15 +179,18 @@ def check_csr_and_return_cert(csr_der, order):
     if order_identifiers != csr_identifiers:
         raise ACMEError(f"{order_identifiers} != {csr_identifiers}", 400, "badCSR")
 
-    csr_der = csr.public_bytes(serialization.Encoding.DER)
+    csr_pem = csr.public_bytes(serialization.Encoding.PEM)
     email = order.account.contact
     subject_dn = csr.subject.rfc4514_string()
     if config["forceTemplateDN"] or not subject_dn:
         subject_dn = config["subjectNameTemplate"].format(SAN=alt_names, MAIL=email)
 
-    certificate, error = backend.sign(csr_der, subject_dn, alt_names, email)
+    certificate, error = backend.sign(csr_pem, subject_dn, alt_names, email)
 
     if error:
         raise ACMEError(error, 400, "badCSR")
+
+    if type(certificate) == str:
+        certificate = certificate.encode("utf-8")
 
     return certificate

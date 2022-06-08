@@ -11,11 +11,6 @@ import serles.challenge as main
 import MockBackend
 import dns.resolver
 
-from cryptography import __version__ as crypto_version
-
-v = [int(s) if s.isdigit() else -1 for s in crypto_version.split(".")]
-has_crypto31 = v[0] >= 3 or (v[0] == 3 and v[1] >= 1)
-
 
 class MockedRequestsSession:
     def get(self, *args, **kwargs):
@@ -208,23 +203,6 @@ class ChallengeFunctionTester(unittest.TestCase):
             result = main.http_challenge(mock_challenge)
             self.assertEqual(result[0], "rejectedIdentifier")
 
-    def test_pkcs7_to_pem_chain_openssl(self):
-        der_input = open("data_pkcs7.bin", "rb").read()
-        pem_output = open("data_pemchain.txt", "r").read()
-        # force openssl-route:
-        with mock.patch("cryptography.__version__", "1.0"):
-            result = main.pkcs7_to_pem_chain(der_input)
-            self.assertEqual(result, pem_output)
-
-    @pytest.mark.skipif(not has_crypto31, reason="need cryptography >= 3.1")
-    def test_pkcs7_to_pem_chain_crypto31(self):
-        der_input = open("data_pkcs7.bin", "rb").read()
-        pem_output = open("data_pemchain.txt", "r").read()
-        # force cryptography-route:
-        with mock.patch("cryptography.__version__", "4.0"):
-            result = main.pkcs7_to_pem_chain(der_input)
-            self.assertEqual(result.replace("\n", ""), pem_output.replace("\n", ""))
-
     def test_check_csr_and_return_cert(self):
         csr_input = open("data_example.test.csr.bin", "rb").read()
         mock_order = Mock()
@@ -257,6 +235,12 @@ class ChallengeFunctionTester(unittest.TestCase):
         result = main.check_csr_and_return_cert(csr_input, mock_order)
         good = open("data_pkcs7.bin", "rb").read()
         self.assertEqual(result, good)
+
+        with unittest.mock.patch.object(
+            main.backend, "sign", lambda *x: ("a string, not bytes", None)
+        ):
+            result = main.check_csr_and_return_cert(csr_input, mock_order)
+            self.assertEqual(result, b"a string, not bytes") # utf-8-encoded bytes
 
         with unittest.mock.patch.object(
             main.backend, "sign", lambda *x: (None, "error")
