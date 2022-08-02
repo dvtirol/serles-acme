@@ -151,8 +151,11 @@ class ViewTester(unittest.TestCase):
         self.kid = account_id
         self.payload = {"contact": ["mailto:foo@bar.baz"]}
         r = c.post("/account/" + account_id)
-        print(r.data)
         self.assertEqual(r.status_code, 200)
+        # existing account, bad kid
+        self.kid = "foo"
+        r = c.post("/account/bar")
+        self.assertEqual(r.status_code, 403)
 
     def test_notfound(self):
         c = self.app.test_client()
@@ -177,15 +180,57 @@ class ViewTester(unittest.TestCase):
         r = c.post("/cert/foo")
         self.assertEqual(r.status_code, 404)
 
+    def test_order_badkey(self):
+        c = self.app.test_client()
+        # setup: create account
+        r = c.post("/newAccount")
+        _, _, account_id = r.headers.get("Location").rpartition("/")
+        self.assertEqual(r.status_code, 201)
+        # correct identifier and existing account:
+        self.kid = account_id
+        self.payload = {"identifiers": [{"type": "dns", "value": "example.test"}]}
+        r = c.post("/newOrder")
+        self.assertEqual(r.status_code, 201)
+        order_url = r.headers.get("Location")
+        self.assertEqual(order_url[:32], "http://localhost/order/urn:uuid:")
+        # test order access
+        order = c.post(order_url)
+        self.assertEqual(order.status_code, 200)
+        authz = c.post(order.json["authorizations"][0])
+        self.assertEqual(authz.status_code, 200)
+        # wrong account key
+        self.kid = "foo"
+        r = c.post(order_url)
+        self.assertEqual(r.status_code, 403)
+        # test authz access
+        r = c.post(order.json["authorizations"][0])
+        self.assertEqual(r.status_code, 403)
+        # test challenge access
+        with unittest.mock.patch.object(
+            main.challenge, "http_challenge", lambda x: (None, None)
+        ):
+            r = c.post(authz.json["challenges"][0]["url"])
+        self.assertEqual(r.status_code, 403)
+
     def test_ordernotready(self):
         c = self.app.test_client()
         with self.app.app_context():
             mock_order = Mock()
             mock_order.status = "x"
+            mock_order.account_id = "foo"
             mock_order_q = Mock()
             mock_order_q.filter_by = lambda id: Mock(first=lambda: mock_order)
             with unittest.mock.patch.object(main.Order, "query", mock_order_q):
                 # with unittest.mock.patch.object(main.Order.query, 'filter_by', lambda id: Mock(first=lambda: Mock(status=main.OrderStatus.pending))):
                 self.payload = {"csr": base64.b64encode(b"foo").decode()}
+                self.kid = "foo"
                 r = c.post("/order/foo/finalize")
                 self.assertEqual(r.status_code, 403)
+                self.assertEqual(r.json["type"], "urn:ietf:params:acme:error:orderNotReady")
+            with unittest.mock.patch.object(main.Order, "query", mock_order_q):
+                # with unittest.mock.patch.object(main.Order.query, 'filter_by', lambda id: Mock(first=lambda: Mock(status=main.OrderStatus.pending))):
+                self.payload = {"csr": base64.b64encode(b"foo").decode()}
+                self.kid = "bar"
+                r = c.post("/order/foo/finalize")
+                self.assertEqual(r.status_code, 403)
+                self.assertEqual(r.json["type"], "urn:ietf:params:acme:error:unauthorized")
