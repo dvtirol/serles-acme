@@ -9,7 +9,7 @@ def get_config():
     Reads the configuration from the environment variable or the default path.
 
     Returns:
-        (dict, class): A tuple of ``config``, ``backend``.
+        (dict, object): A tuple of ``config``, ``backend``.
     """
     config, backend = load_config_and_backend(
         os.environ.get("CONFIG", "/etc/serles/config.ini")
@@ -37,7 +37,7 @@ def load_config_and_backend(filename):
 
     Returns:
         (object, configparser.ConfigParser): A tuple containing the Backend
-            class and the parsed config (dict-like)
+        class and the parsed config (dict-like)
 
     Raises:
         ConfigError: The config could not be loaded, is missing a required key

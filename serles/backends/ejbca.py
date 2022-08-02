@@ -7,7 +7,7 @@ import zeep  # fedora package: python3-zeep.noarch
 
 
 class EjbcaBackend:
-    """ ACMEByProxy Backend for EJBCA (Community edition compatible)
+    """ Serles Backend for EJBCA (Community edition compatible)
 
     Uses the EJBCA SOAP API to request certificates. Recommended setup on the
     EJBCA side:

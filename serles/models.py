@@ -16,7 +16,7 @@ db = SQLAlchemy(session_options={"expire_on_commit": False})
 class UTCDateTime(db.TypeDecorator):
     """
     SQLite stores datetimes without TZ info, and SQLAlchemy then returns
-    TZ-naive datetimes. This breaks calculating timedeltas. So this wrapper
+    TZ-less datetimes. This breaks calculating timedeltas. So this wrapper
     converts incoming timestamps to UTC before storing and adds the TZ (utc)
     back on retrieval.
     """
@@ -255,8 +255,8 @@ class AccountStatus(Enum):
 class Account(db.Model):  # RFC8555 §7.1.2
     """
     To avoid having to send the large public key for each request, a client
-    registers an Account and identifies themselves using the key id. On
-    letsencrypt, accounts persist over a long time, and some clients will try
+    registers an Account and identifies itself using the key id. With *Let's
+    Encrypt*, accounts persist over a long time, and some clients will try
     to keep using it. Certbot is especially bad at this, as it fails when the
     account it expects doesn't exist. This object also stores an optional
     contact email address, which we pass to the backend (e.g. for notifications

@@ -8,7 +8,7 @@ from threading import Timer
 def background_job(interval):
     """ executes the decorated function in an interval
 
-    A very simple "cron" replacement: decorate a function to call it in its own
+    A very simple scheduler: decorate a function to call it in its own
     thread in a given interval.
 
     Args:

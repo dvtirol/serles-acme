@@ -8,8 +8,8 @@ Setting up Serles with Gunicorn
 In this document we will describe a production-ready setup of Serles using
 Gunicorn.
 
-1. Installation
----------------
+Installation
+------------
 
 .. code-block:: shell
 
@@ -18,12 +18,12 @@ Gunicorn.
     python3 -m pip install serles-acme
 
 In order to run Serles in production, you will need a WSGI HTTP(s) server. We
-chose gunicorn for this example, which ships with Serles. You do not have to
-use a virtual environment; all dependencies should also be packaged by your
+have chosen gunicorn for this example, which ships with Serles. You do not have
+to use a virtual environment; all dependencies should also be packaged by your
 distribution.
 
-2. Configuration
-----------------
+Configuration
+-------------
 
 Copy the (fully commented) sample configuration file ``config.ini.example`` to
 ``/etc/serles/config.ini`` and modify it to suit your environment.

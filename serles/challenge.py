@@ -84,7 +84,7 @@ def http_challenge(challenge):  # RFC8555 §8.3
 
     Returns:
         tuple(str,str): problem detail type of the error and  textual
-            description, or (None,None).
+        description, or (None,None).
     """
     host = challenge.authorization.identifier.value
     token = challenge.token

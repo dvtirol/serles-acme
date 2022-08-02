@@ -1,20 +1,14 @@
 Serles: A Tiny and Extensible ACME Server/Proxy
 ===============================================
 
-|travis| |codecov| |pypiver| |pypidl| |pypiwheel| |pypilic|
+.. only::html
+  |travis| |codecov|
 
-|gh_stars| |contributors| |forks|
+  |gh_stars| |contributors| |forks|
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
-   :hidden:
 
-   installation
-   ejbca-configuration
-
-   api
-   genindex
+Introduction
+------------
 
 Serles is a tiny ACME-CA implementation to enhance your existing Certificate
 Authority infrastructure. Initially developed to support ACME with the Open
@@ -23,17 +17,17 @@ Enterprise version), the software is designed for easy adaptation to other PKI
 software/CAs which provide an API to issue certificates.
 
 We sometimes call it a proxy, as it delegates certificate issuance to your
-existing PKI. From a user point of view serles-acme in combination with an EJBCA
-instance can be compared to be something like your own private letsencrypt.
+existing PKI. From a user's point of view, serles-acme can be your own private
+*Let's Encrypt*, when combined with EJBCA.
 
-If you want to use another PKI project, feel free to implement your own
-backends. Contributions are heavily welcome.
+If you want to use another PKI, feel free to implement your own backends.
+Contributions are welcome.
 
-For whom is this project?
+Who is this project for?
 
-- You want to build up you own PKI, either for company or home usage
+- You want to build up your own PKI, either for company or home use
 - You want to automate the issuing process for all your devices
-- You already using another PKI Software and want to use certbot with it
+- You already use another PKI Software and want to use certbot with it
 
 .. |travis| image:: https://travis-ci.org/dvtirol/serles-acme.svg?branch=master
             :target: https://travis-ci.org/dvtirol/serles-acme
@@ -45,38 +39,28 @@ For whom is this project?
                   :target: https://github.com/dvtirol/serles-acme
 .. |forks| image:: https://img.shields.io/github/forks/dvtirol/serles-acme.svg?label=github%20forks&style=for-the-badge
            :target: https://github.com/dvtirol/serles-acme
-.. |pypidl| image:: https://pypip.in/d/serles-acme/badge.svg
-            :target: https://pypi.org/project/serles-acme/
-.. |pypiver| image:: https://pypip.in/v/serles-acme/badge.svg
-             :target: https://pypi.org/project/serles-acme/
-.. |pypiegg| image:: https://pypip.in/egg/serles-acme/badge.svg
-             :target: https://pypi.org/project/serles-acme/
-.. |pypiwheel| image:: https://pypip.in/wheel/serles-acme/badge.svg
-               :target: https://pypi.org/project/serles-acme/
-.. |pypilic| image:: https://pypip.in/license/serles-acme/badge.svg
-             :target: https://pypi.org/project/serles-acme/
 
 Architecture
 ------------
 
 Serles is intended to automate certificate issuance from your existing CA. It
-will verify the legitimacy of certificate requests, and (if they are), pass
-them on to a plugin/backend.
+will verify the legitimacy of certificate requests, and, if this is the case,
+pass them on to a plugin/backend.
 
 .. code-block:: text
 
-  +--------+                            +---------+                        +---------+
-  |        | (1) ---{authentication}--> |         |                        | Backend |
-  |  Web   | (2) ---{order cert}------> | Serles  |                        |  (e.g.  |
-  | Server | <-----{validation}-----(3) |  ACME   |                        |  EJBCA) |
-  |        | (4) ---{CSR}-------------> |         | (5) ---{CSR}---------> |         |
-  +--------+ <-----{certificate}--- (7) +---------+ <--{certificate}-- (6) +---------+
+  +--------+                            +--------+                        +---------+
+  |        | (1) ---{authentication}--> |        |                        | Backend |
+  |  Web   | (2) ---{order cert}------> | Serles |                        |  (e.g.  |
+  | Server | <-----{validation}-----(3) |  ACME  |                        |  EJBCA) |
+  |        | (4) ---{CSR}-------------> |        | (5) ---{CSR}---------> |         |
+  +--------+ <-----{certificate}--- (7) +--------+ <--{certificate}-- (6) +---------+
 
 The threat model is *execution inside a (trusted) enterprise network*. Yet, care
 has been taken when accepting any user data. While there is no user
 authentication (i.e. anyone who can access Serles is allowed to ask for
 certificates), one may specify to which IP subnets requested domains must
-resolve to in order to be granted a certificate.
+resolve in order to be granted a certificate.
 
 Installation
 ------------
@@ -102,6 +86,7 @@ A backend is simply a class (no inheritance required) and has the following meth
 
 - a constructor taking the parsed config (``ConfigParser`` object; ``dict``-like)
 - a method ``sign(self, csr, subjectDN, subjectAltNames, email)``:  
+
     Parameters:  
 
     - ``csr``: the CSR as coming from the client (in DER-encoded PKCS#10 format)
@@ -109,7 +94,7 @@ A backend is simply a class (no inheritance required) and has the following meth
       created from the template string in the config file.
     - ``subjectAltNames``: a list of domain names (as strings) that are to be
       written in the certificate's SAN extension attributes.
-    - ``email``: the email stored in the requesting account (or None).
+    - ``email``: the email stored in the requesting account (or ``None``).
       Intended to be passed on to the backend for notification of the client.
     
     Returns:  
@@ -147,7 +132,7 @@ with a client certificate which will be used to talk to the API.
 When issuing certificates, the Username and Enrollment Code will be generated
 from a template. This template can be configured in the config; you can use
 parameters from the Distinguished Name (from CSR) by wrapping them in curly
-brackets.
+braces.
 
 If the client sets a contact email, we will pass it on to EJBCA when forwarding
 the CSR. EJBCA can then be configured to send notifications for the
@@ -170,7 +155,7 @@ been fulfilled (or rejected), all data relating to it is no longer used (and
 actually deleted when the order expires, 7 days after its creation). It is
 therefore sufficient to store this database in-memory. However, this in-memory
 database is not thread safe. Depending on your requirements, either set
-``database`` in ``config.ini`` to a on-disk DB, or (when using gunicorn) limit
+``database`` in ``config.ini`` to an on-disk DB, or (when using gunicorn) limit
 the number of worker processes and threads to 1.
 
 Note that certbot tries to re-use account IDs, so when using an in-memory DB

@@ -46,7 +46,7 @@ class Directory(Resource):
 
 @api.resource("/newNonce")  # RFC8555 §7.2
 class NewNonce(Resource):
-    """ Lets the client fetch a nonce, if they ran out of 'em. """
+    """ Lets the client fetch a nonce, if they ran out of them. """
 
     # Note: the replay-nonce header is injected in a @after_request handler.
     def head(self):

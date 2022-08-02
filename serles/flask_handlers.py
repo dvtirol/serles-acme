@@ -14,12 +14,13 @@ from .exceptions import ACMEError
 def parse_jws():  # RFC8555 §6.2
     """
     Verify that the signature is as specified by the RFC, and make the payload
-    available to all POST views using Flask's "g" object. Note that we aren't
+    available to all POST views using Flask's ``g`` object. Note that we aren't
     fully checking every detail, just the security relevant ones.
     Note also that we don't support key rollover (as required by spec).
 
     This function is registered as a before_request handler and augments the
     ``g`` object with the following attributes:
+
     - ``g.payload``: the actually interesting request data, JSON-decoded
     - ``g.kid``: the JWK key id (in our case a uuid) of the user, if known
     - ``g.jwk``: the JWK public key, when a user tries to register
