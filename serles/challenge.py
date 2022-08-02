@@ -179,9 +179,9 @@ def pkcs7_to_pem_chain(pkcs7_input):
             [
                 l
                 for l in pem_cert.splitlines()
-                if not l.startswith("subject=") and not l.startswith("issuer=")
+                if l and not l.startswith("subject=") and not l.startswith("issuer=")
             ]
-        )
+        )+"\n"
 
 
 def check_csr_and_return_cert(csr_der, order):
