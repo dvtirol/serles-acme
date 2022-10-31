@@ -24,7 +24,8 @@ def create_app():
     init_config()  # views.init_config()
     api.init_app(app)
     db.init_app(app)
-    db.create_all(app=app)  # Note: model classes must be defined at this point
+    with app.app_context():
+        db.create_all()  # Note: model classes must be defined at this point
 
     app.register_error_handler(Exception, exception_handler)
     app.before_request(parse_jws)

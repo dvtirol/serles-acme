@@ -13,7 +13,7 @@ setup(
     python_requires=">=3.6",
     scripts=["bin/serles"],
     install_requires=[
-        "Flask",
+        "flask",
         "Flask-RESTful",
         "Flask-SQLAlchemy",
         "requests",
