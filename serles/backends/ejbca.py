@@ -74,7 +74,7 @@ class EjbcaBackend:
     def sign(self, csr, subjectDN, subjectAltNames, email):
         subjectAltName = ",".join(f"DNSNAME={name}" for name in subjectAltNames)
 
-        csr_obj = x509.load_der_x509_csr(csr, x509_backend())
+        csr_obj = x509.load_pem_x509_csr(csr, x509_backend())
         csr_der = csr_obj.public_bytes(serialization.Encoding.DER)
 
         # NOTE: this is very hacky and not to spec/rfc4514, but should be
