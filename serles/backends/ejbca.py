@@ -114,10 +114,12 @@ class EjbcaBackend:
             pkcs7 = base64.b64decode(result.data)
             return pkcs7_to_pem_chain(pkcs7), None
         except zeep.exceptions.Fault as e:
-            # observed these exception types:
+            # remove exception class names from error, if present. observed these:
             # - org.cesecore.certificates.certificate.CertificateCreateException
             # - org.ejbca.core.model.ra.raadmin.EndEntityProfileValidationException
-            typestr, _, message = e.message.partition(":")
+            message = e.message
+            if typestr.startswith("org."):
+                typestr, _, message = message.partition(":")
             return None, message
 
 
