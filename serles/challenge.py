@@ -103,8 +103,8 @@ def http_challenge(challenge):  # RFC8555 §8.3
     # to verify it is in the range(s) of allowed addresses. Note that the
     # socket goes away once we read r.content or r.text.
     try:
-        r = session.get(f"http://{host}/{prefix}/{token}", stream=True)
-    except requests.ConnectionError as e:
+        r = session.get(f"http://{host}/{prefix}/{token}", stream=True, timeout=10)
+    except (requests.ConnectionError, requests.ReadTimeout) as e:
         return "connection", str(e)  # also catches dns and tls errors
 
     try:  # this sometimes fails (sock is None)
