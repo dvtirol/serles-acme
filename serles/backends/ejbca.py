@@ -118,7 +118,7 @@ class EjbcaBackend:
             # - org.cesecore.certificates.certificate.CertificateCreateException
             # - org.ejbca.core.model.ra.raadmin.EndEntityProfileValidationException
             message = e.message
-            if typestr.startswith("org."):
+            if message.startswith("org."):
                 typestr, _, message = message.partition(":")
             return None, message
 
