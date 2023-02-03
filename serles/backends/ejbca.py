@@ -5,6 +5,7 @@ import secrets
 import zeep  # fedora package: python3-zeep.noarch
 from cryptography import x509  # python3-cryptography.x86_64
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.serialization import pkcs7
 from cryptography.hazmat.backends import default_backend as x509_backend
 
 
@@ -111,8 +112,8 @@ class EjbcaBackend:
                 None,
                 "PKCS7WITHCHAIN",  # CertificateHelper.RESPONSETYPE_PKCS7WITHCHAIN
             )
-            pkcs7 = base64.b64decode(result.data)
-            return pkcs7_to_pem_chain(pkcs7), None
+            pkcs7data = base64.b64decode(result.data)
+            return pkcs7_to_pem_chain(pkcs7data), None
         except zeep.exceptions.Fault as e:
             # remove exception class names from error, if present. observed these:
             # - org.cesecore.certificates.certificate.CertificateCreateException
@@ -133,7 +134,7 @@ def pkcs7_to_pem_chain(pkcs7_input):
         str: PEM encoded certificate chain as expected by ACME clients.
     """
 
-    certs = serialization.pkcs7.load_der_pkcs7_certificates(pkcs7_input)
+    certs = pkcs7.load_der_pkcs7_certificates(pkcs7_input)
     return "\n".join(
         [
             cert.public_bytes(serialization.Encoding.PEM).decode("ascii")
