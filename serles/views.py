@@ -37,8 +37,9 @@ class Directory(Resource):
             "newNonce": api.url_for(NewNonce, _external=True),
             "newAccount": api.url_for(NewAccount, _external=True),
             "newOrder": api.url_for(NewOrder, _external=True),
+            "revokeCert": api.url_for(RevokeCert, _external=True),
+            "keyChange": api.url_for(KeyChange, _external=True),
             # "newAuthz": MUST be absent if pre-authorization not supported
-            # "revokeCert": not offered
             # optional: meta:{termsOfService"",website"",caaIdentities[""],externalAccountRequired?}
         }
 
@@ -157,14 +158,20 @@ class NewOrder(Resource):
 
 @api.resource("/newAuthz")  # RFC8555 §7.4.1 (Pre-authorization, not offered)
 class NewAuthz(Resource):
-    "not offered."
-    pass
+    def post(self):
+        raise ACMEError(f"not offered", 403, "unauthorized")
 
 
 @api.resource("/revokeCert")  # RFC8555 §7.6 (Certificate Revocation, not offered)
 class RevokeCert(Resource):
-    "not offered."
-    pass
+    def post(self):
+        raise ACMEError(f"not offered", 403, "unauthorized")
+
+
+@api.resource("/keyChange")  # RFC8555 §7.3.5 (Account Key Rollover, not offered)
+class KeyChange(Resource):
+    def post(self):
+        raise ACMEError(f"not offered", 403, "unauthorized")
 
 
 @api.resource("/account/<kid>")  # RFC8555 §7.3.2 (Account Management)
