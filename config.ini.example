@@ -72,3 +72,26 @@ entityPasswordScheme = {random}
 # For convenience, a self-signed CA is created if these files do not exist.
 cacert = /tmp/ca.crt
 cakey = /tmp/ca.key
+
+# Config for the certbot backend.
+[certbot]
+
+# Path to the certbot executable/script
+script = /usr/bin/certbot
+
+# Additional certbot configuration
+#
+# This is a multiline string and must be formatted as a json array, make sure lines are indented
+# certbot must be fully installed and registered before using with serles, use of the --staging option
+# is highly recommended until you have confirmed it is fully functional. Below example shows the use
+# of cloudflare dns validation mode for certbot, but any method capable of running on the server running
+# serles can be used.
+
+args = [
+    "--config-dir", "/local/acme/certbot/config",
+    "--work-dir", "/local/acme/certbot/work",
+    "--logs-dir", "/local/acme/certbot/logs",
+    "--preferred-challenges=dns",
+    "--dns-cloudflare",
+    "--dns-cloudflare-credentials=/local/acme/cloudflare.ini"
+  ]
