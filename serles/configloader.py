@@ -55,10 +55,10 @@ def load_config_and_backend(filename):
         backendModule = importlib.import_module(mod, __name__)
         backend = getattr(backendModule, cls or "Backend")(cparser)
         assert hasattr(backend, "sign")
-    except KeyError:
+    except KeyError as err:
         raise ConfigError(
             "please define the backend class to use in [serles]backend="
-        ) from None
+        ) from err
     except ModuleNotFoundError:
         raise ConfigError("the backend class could not be loaded") from None
     except AssertionError:
