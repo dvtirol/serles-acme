@@ -52,16 +52,28 @@ def load_config_and_backend(filename):
 
     try:
         mod, _, cls = cparser["serles"]["backend"].partition(":")
-        backendModule = importlib.import_module(mod, __name__)
-        backend = getattr(backendModule, cls or "Backend")(cparser)
-        assert hasattr(backend, "sign")
     except KeyError:
         raise ConfigError(
             "please define the backend class to use in [serles]backend="
         ) from None
-    except ModuleNotFoundError:
-        raise ConfigError("the backend class could not be loaded") from None
-    except AssertionError:
+
+    try:
+        backendModule = importlib.import_module(mod, __name__)
+    except ModuleNotFoundError as e:
+        raise ConfigError("the backend class could not be loaded") from e
+
+    clsname = cls or "Backend"
+    if not hasattr(backendModule, clsname):
+        raise ConfigError(
+            f"backend does not define a {clsname} class (wrong module loaded?)"
+        ) from None
+
+    try:
+        backend = getattr(backendModule, clsname)(cparser)
+    except Exception as e:
+        raise ConfigError("exception while initializing backend") from e
+
+    if not hasattr(backend, "sign"):
         raise ConfigError(
             "backend does not define a sign method (wrong class loaded?)"
         ) from None
