@@ -1,6 +1,7 @@
 import subprocess
 import tempfile
 import json
+import os
 
 from subprocess import STDOUT, PIPE
 
@@ -22,20 +23,48 @@ class Backend:
     """
 
     def __init__(self, config):
-        self.path = "certbot"
-        self.args = []
+        self.path = "/usr/bin/certbot"
+        self.ini = None
+        self.config = None
+        self.config_file = None
 
         if "certbot" in config:
             if "path" in config['certbot']:
                 self.path = config['certbot']['path']
-            if "args" in config['certbot']:
-                self.args = json.loads(config['certbot']['args'])
+            if "ini" in config['certbot']:
+                self.ini = config['certbot']['ini']
+            if "config" in config['certbot']:
+                self.config = config['certbot']['config']
+            if "config-file" in config['certbot']:
+                self.config_file = config['certbot']['config-file']
+
+        if self.config_file and self.config:
+            raise Exception("cannot specify both certbot.config and certbot.config-file in serles.ini")
+
+        if not self.config_file and not self.config:
+            # Insure we load in our own config and do NOT fall back to system level certbot default config file
+            self.config_file = "/dev/null"
+
+        if not os.path.exists(self.path):
+            raise Exception(f"certbot not found at '{self.path}', please specify correct path in certbot.path setting in serles.ini")
+
+        if not os.access(self.path, os.X_OK):
+            raise Exception(f"certbot at '{self.path}' not executable")
 
     def sign(self, csr, subjectDN, subjectAltNames, email):
         with tempfile.TemporaryDirectory(prefix="serles-certbot") as tmpdir:
+
+            # Write explicit configuration to temporary file if a config file is not provided
+            certbot_config_arg = self.config_file
+            if self.config:
+                ini_file = f"{tmpdir}/certbot-cli.ini"
+                with open(ini_file, "w") as fh:
+                    fh.write(self.config)
+                certbot_config_arg = ini_file
+
             csr_file = f"{tmpdir}/csr.pem"
-            with open(csr_file, "w") as fh:
-                fh.write(csr.decode('utf-8'))
+            with open(csr_file, "wb") as fh:
+                fh.write(csr)
 
             cert_file = f"{tmpdir}/cert.pem"
             fullchain_file = f"{tmpdir}/fullchain.pem"
@@ -44,18 +73,16 @@ class Backend:
             cmd = [
                 self.path,
                 "certonly",
+                "--config", certbot_config_arg,
                 "--non-interactive",
-                "--force-renew",
-                "--expand",
                 "--csr", csr_file,
                 "--cert-path", cert_file,
                 "--fullchain-path", fullchain_file,
-                "--chain-path", chain_file,
-                *(self.args),
+                "--chain-path", chain_file
             ]
 
             for csr_san in subjectAltNames:
-              cmd.extend(["-d", csr_san])
+                cmd.extend(["-d", csr_san])
 
             res = subprocess.run(cmd, stdout=PIPE, stderr=STDOUT, check=False)
             output = res.stdout.decode('utf-8')

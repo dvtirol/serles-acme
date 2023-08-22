@@ -76,22 +76,16 @@ cakey = /tmp/ca.key
 # Config for the certbot backend.
 [certbot]
 
-# Path to the certbot executable/script
-script = /usr/bin/certbot
+# Path to the certbot executable/script, by default uses /usr/bin/certbot
+# If your installation of certbot is in a different location, specify it here.
+#path = /usr/bin/certbot
 
-# Additional certbot configuration
-#
-# This is a multiline string and must be formatted as a json array, make sure lines are indented
-# certbot must be fully installed and registered before using with serles, use of the --staging option
-# is highly recommended until you have confirmed it is fully functional. Below example shows the use
-# of cloudflare dns validation mode for certbot, but any method capable of running on the server running
-# serles can be used.
+# Path to a certbot ini file to provide certbot configuration options, see example in
+# examples-backends/certbot-cli.ini for more details.
+#config-file = /path/to/certbot-cli.ini
 
-args = [
-    "--config-dir", "/local/acme/certbot/config",
-    "--work-dir", "/local/acme/certbot/work",
-    "--logs-dir", "/local/acme/certbot/logs",
-    "--preferred-challenges=dns",
-    "--dns-cloudflare",
-    "--dns-cloudflare-credentials=/local/acme/cloudflare.ini"
-  ]
+# Configuration to provide to certbot as it's config file. If specified, this will be used
+# instead of any config file specified with the 'config-file' option above. See content example
+# in examples-backends/certbot-cli.ini. This is a multiline string, be sure to indent after the
+# first line.
+#config = contents of certbot-cli.ini file
