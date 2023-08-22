@@ -3,7 +3,6 @@ import tempfile
 import json
 
 from subprocess import STDOUT, PIPE
-from pathlib import Path
 
 class Backend:
     """ Serles Backend for certbot
