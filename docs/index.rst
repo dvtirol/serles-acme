@@ -148,6 +148,18 @@ All you need is an existing installation of certbot on the host running serles t
 is capable of issuing certificates. Serles can then use certbot for any client
 requests. This is generally used in conjunction with DNS based validation.
 
+At a minimum for setup, you will want to provide certbot.config or certbot.config-file
+specifying what method to use for validation of certificates and any necessary
+configuration for that method. You will need to refer to your particular certbot
+backend for minimum configuration required.
+
+For Route53 with credentials already set up in environment, you may only need to
+specify "dns-route53" and "preferred-challenges=dns"
+
+See certbot documentation for more details:
+
+  https://eff-certbot.readthedocs.io/en/stable/using.html#dns-plugins
+
 Dependencies
 ------------
 
