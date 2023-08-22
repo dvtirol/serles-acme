@@ -122,7 +122,7 @@ Optionally, one can also inherit from the abstract ``serles.backends.base``:
           return None, "not implemented"
 
 EJBCA SOAP Backend
-------------------
+~~~~~~~~~~~~~~~~~~
 
 All you need is a user that has permission_ to issue certificates. Set up a
 Certificate Authority (e.g. testca), an End Entity Profile (e.g. acmeendentity)
@@ -142,7 +142,7 @@ EndEntityProfile.
 
 
 CertBot Backend
----------------
+~~~~~~~~~~~~~~~
 
 All you need is an existing installation of certbot on the host running serles that
 is capable of issuing certificates. Serles can then use certbot for any client
