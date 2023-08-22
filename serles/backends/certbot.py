@@ -23,7 +23,7 @@ class Backend:
     """
 
     def __init__(self, config):
-        self.path = "/usr/bin/certbot"
+        self.path = "certbot"
         self.args = []
 
         if "certbot" in config:
