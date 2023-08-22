@@ -39,17 +39,17 @@ class Backend:
                 self.config_file = config['certbot']['config-file']
 
         if self.config_file and self.config:
-            raise Exception("cannot specify both certbot.config and certbot.config-file in serles.ini")
+            raise Exception("cannot specify both certbot.config and certbot.config-file in config.ini")
 
         if not self.config_file and not self.config:
             # Insure we load in our own config and do NOT fall back to system level certbot default config file
             self.config_file = "/dev/null"
 
         if not os.path.exists(self.path):
-            raise Exception(f"certbot not found at '{self.path}', please specify correct path in certbot.path setting in serles.ini")
+            raise Exception(f"certbot not found at '{self.path}', please specify correct path in certbot.path setting in config.ini")
 
         if not os.access(self.path, os.X_OK):
-            raise Exception(f"certbot at '{self.path}' not executable")
+            raise Exception(f"certbot '{self.path}' not executable")
 
     def sign(self, csr, subjectDN, subjectAltNames, email):
         with tempfile.TemporaryDirectory(prefix="serles-certbot") as tmpdir:
