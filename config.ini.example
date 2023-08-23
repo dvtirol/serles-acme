@@ -80,12 +80,17 @@ cakey = /tmp/ca.key
 # If your installation of certbot is in a different location, specify it here.
 #path = /usr/bin/certbot
 
-# Path to a certbot ini file to provide certbot configuration options, see example in
-# examples-backends/certbot-cli.ini for more details.
-#config-file = /path/to/certbot-cli.ini
-
-# Configuration to provide to certbot as it's config file. If specified, this will be used
-# instead of any config file specified with the 'config-file' option above. See content example
-# in examples-backends/certbot-cli.ini. This is a multiline string, be sure to indent after the
-# first line.
-#config = contents of certbot-cli.ini file
+# Configuration to provide to certbot as it's config file. This example
+# configures certbot to use cloudflare's DNS (assumes credential file exists).
+# Note that certbot config must be indented when spanning multiple lines.
+config =
+    preferred-challenges=dns
+    dns-cloudflare
+    dns-cloudflare-credentials=/etc/serles/cloudflare.ini
+    # certbot attempts to write to these paths; overwrite if not running as root:
+    #config-dir=/etc/letsencrypt
+    #work-dir=/var/lib/letsencrypt
+    #logs-dir=/var/log/letsencrypt
+    
+# Alternatively to `config`, an external config file can be referenced directly:
+#config-file = /etc/serles/certbot-cli.ini
