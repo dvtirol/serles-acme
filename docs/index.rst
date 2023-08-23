@@ -153,12 +153,36 @@ specifying what method to use for validation of certificates and any necessary
 configuration for that method. You will need to refer to your particular certbot
 backend for minimum configuration required.
 
-For Route53 with credentials already set up in environment, you may only need to
-specify "dns-route53" and "preferred-challenges=dns"
+The certbot plugin is _usually_ used with a DNS backend, however if you have your
+serles installation in a DMZ with a wildcarded host or similar, you could potentially
+use the http-01 based validation.
 
-See certbot documentation for more details:
+For Route53 with credentials already set up in environment, this may be sufficient:
+
+  preferred-challenges=dns
+  dns-route53
+
+For CloudFlare:
+
+  preferred-challenges=dns
+  dns-cloudflare
+  dns-cloudflare-credentials=/path/to/cloudflare.ini
+
+See certbot documentation for more details and other providers:
 
   https://eff-certbot.readthedocs.io/en/stable/using.html#dns-plugins
+
+If you have set up certbot for serles to have it's own installation directories,
+you may want to specify those here otherwise make sure that serles is running with a
+userid that has filesystem perms to write to the certbot directories.
+
+Additional configuration in that case assuming "/local/acme/certbot" installation
+path.
+
+  config-dir=/local/acme/certbot/config
+  work-dir=/local/acme/certbot/work
+  logs-dir=/local/acme/certbot/logs
+
 
 Dependencies
 ------------
