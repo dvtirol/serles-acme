@@ -72,3 +72,25 @@ entityPasswordScheme = {random}
 # For convenience, a self-signed CA is created if these files do not exist.
 cacert = /tmp/ca.crt
 cakey = /tmp/ca.key
+
+# Config for the certbot backend.
+[certbot]
+
+# Path to the certbot executable/script, by default uses /usr/bin/certbot
+# If your installation of certbot is in a different location, specify it here.
+#path = /usr/bin/certbot
+
+# Configuration to provide to certbot as it's config file. This example
+# configures certbot to use cloudflare's DNS (assumes credential file exists).
+# Note that certbot config must be indented when spanning multiple lines.
+config =
+    preferred-challenges=dns
+    dns-cloudflare
+    dns-cloudflare-credentials=/etc/serles/cloudflare.ini
+    # certbot attempts to write to these paths; overwrite if not running as root:
+    #config-dir=/etc/letsencrypt
+    #work-dir=/var/lib/letsencrypt
+    #logs-dir=/var/log/letsencrypt
+
+# Alternatively to `config`, an external config file can be referenced directly:
+#config-file = /etc/serles/certbot-cli.ini
