@@ -144,40 +144,48 @@ EndEntityProfile.
 CertBot Backend
 ~~~~~~~~~~~~~~~
 
-All you need is an existing installation of certbot on the host running serles that
-is capable of issuing certificates. Serles can then use certbot for any client
-requests. This is generally used in conjunction with DNS based validation.
+All you need is an existing installation of certbot on the host running serles
+that is capable of issuing certificates. Serles can then use certbot for any
+client requests. This is generally used in conjunction with DNS based
+validation.
 
-At a minimum for setup, you will want to provide certbot.config or certbot.config-file
-specifying what method to use for validation of certificates and any necessary
-configuration for that method. You will need to refer to your particular certbot
-backend for minimum configuration required.
+At a minimum for setup, you will want to provide ``certbot.config`` or
+``certbot.config-file`` specifying what method to use for validation of
+certificates and any necessary configuration for that method. You will need to
+refer to your particular certbot backend for minimum configuration required.
 
-The certbot plugin is _usually_ used with a DNS backend, however if you have your
-serles installation in a DMZ with a wildcarded host or similar, you could potentially
-use the http-01 based validation.
+The certbot plugin is *usually* used with a DNS backend, however if you have
+your serles installation in a DMZ with a wildcarded host or similar, you could
+potentially use the http-01 based validation.
 
-For Route53 with credentials already set up in environment, this may be sufficient:
+For Route53, with credentials already set up in environment, this may be
+sufficient:
+
+.. code-block:: text
 
   preferred-challenges=dns
   dns-route53
 
 For CloudFlare:
 
+.. code-block:: text
+
   preferred-challenges=dns
   dns-cloudflare
   dns-cloudflare-credentials=/path/to/cloudflare.ini
 
-See certbot documentation for more details and other providers:
-
-  https://eff-certbot.readthedocs.io/en/stable/using.html#dns-plugins
+See `certbot's DNS plugin documentation
+<https://eff-certbot.readthedocs.io/en/stable/using.html#dns-plugins>`_ for
+more details and other providers.
 
 If you have set up certbot for serles to have it's own installation directories,
-you may want to specify those here otherwise make sure that serles is running with a
-userid that has filesystem perms to write to the certbot directories.
+you may want to specify those here, otherwise make sure that serles is running
+with a userid that has filesystem perms to write to the certbot directories.
 
-Additional configuration in that case assuming "/local/acme/certbot" installation
-path.
+Additional configuration in that case assuming ``/local/acme/certbot``
+installation path.
+
+.. code-block:: text
 
   config-dir=/local/acme/certbot/config
   work-dir=/local/acme/certbot/work
@@ -187,9 +195,7 @@ path.
 Dependencies
 ------------
 
-Dependencies are stated in ``setup.py``. If the available python-cryptography
-version is less than 3.1, the openssl command line utility (somewhere in
-``$PATH``) is required.
+Dependencies are stated in ``setup.py``.
 
 Notes on threads and databases
 ------------------------------

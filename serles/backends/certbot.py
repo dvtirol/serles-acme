@@ -8,18 +8,24 @@ from subprocess import STDOUT, PIPE
 class Backend:
     """ Serles Backend for certbot
 
-    Backend will pass the certificate signing request to an already configured certbot installation.
+    Backend will pass the certificate signing request to an already configured
+    certbot installation.
 
     Example use cases:
+       1. Want actual trusted certs without using an internal CA (you want it
+          to work in browsers/etc. out of the box)
+       2. Don't want the services externally exposed (internal
+          services/development only)
+       3. Don't want the internal services having control over your external
+          DNS (random developers/users)
+       4. Have an intermediate server running serles that you are willing to
+          grant external DNS update rights to.
 
-       1. Want actual trusted certs without using an internal CA (you want it to work in browsers/etc. out of the box)
-       2. Don't want the services externally exposed (internal services/development only)
-       3. Don't want the internal services having control over your external DNS (random developers/users)
-       4. Have an intermediate server running serles that you are willing to grant external DNS update rights to.
+    This allows any internal entity to transparently use serles ACME CA with
+    http-01 validation, but the actual signing requests are delegated to
+    external ACME CA.
 
-    This allows any internal entity to transparently use serles ACME CA with http-01 validation, but the actual signing
-    requests are delegated to external ACME CA.
-
+    Contributed by Nathan Neulinger.
     """
 
     def __init__(self, config):

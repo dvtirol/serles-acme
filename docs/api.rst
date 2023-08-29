@@ -12,6 +12,9 @@ See also: :ref:`modindex`
 .. automodule:: serles.backends.base
     :members:
 
+.. automodule:: serles.backends.certbot
+    :members:
+
 .. automodule:: serles.models
     :members:
 
