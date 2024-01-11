@@ -71,3 +71,27 @@ class HelperFunctionTester(unittest.TestCase):
                 return
 
             self.assertTrue(mockTimer.called)
+
+    def test_berparser(self):
+        # test non-OCTET_STRING value
+        self.assertRaises(
+            AssertionError,
+            main.ber_parse,
+            (b"\x00",),
+        )
+
+        # test with bad length
+        self.assertRaises(
+            AssertionError,
+            main.ber_parse,
+            (b"\x04\x00foo",),
+        )
+
+        # test with indeterminate length
+        self.assertEqual(b"foo", main.ber_parse(b"\x04\x80foo"))
+
+        # test with 1 byte length
+        self.assertEqual(b"foo", main.ber_parse(b"\x04\x03foo"))
+
+        # test with multi byte length
+        self.assertEqual(b"foo", main.ber_parse(b"\x04\x81\x03foo"))

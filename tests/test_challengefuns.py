@@ -6,6 +6,7 @@ import unittest
 from unittest.mock import Mock
 import mock
 import pytest
+from copy import deepcopy
 
 import serles.challenge as main
 import MockBackend
@@ -41,6 +42,64 @@ class MockedRequestsResponseSession:
         return mock_response
 
 
+class MockedSocket:
+    def __init__(self, host):
+        ...
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, a, b, c):
+        ...
+
+
+class MockedSocketBadConnection(MockedSocket):
+    def __enter__(self):
+        raise ConnectionError("oops")
+
+
+class MockedSSLContext:
+    def wrap_socket(self, sock, server_hostname):
+        return self
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, a, b, c):
+        ...
+
+    def set_alpn_protocols(self, protos):
+        assert protos == ["acme-tls/1"]
+
+    # inside wrapped_socket context:
+    def getpeername(self):
+        return (None,)
+
+    def getpeercert(self, binary_form):
+        return open("data_alpn_cert.der", "rb").read()
+
+    def version(self):
+        return "TLSv1.2"
+
+    def selected_alpn_protocol(self):
+        return "acme-tls/1"
+
+
+class MockedSSLContextBadTLS(MockedSSLContext):
+    def version(self):
+        return "TLSv1.1"
+
+
+class MockedSSLContextBadALPN(MockedSSLContext):
+    def selected_alpn_protocol(self):
+        return "h2"
+
+
+class MockedSSLContextBadCert(MockedSSLContext):
+    def getpeercert(self, binary_form):
+        return open("data_alpn_cert_bad.der", "rb").read()
+
+
 def mockedDNSResolve(qname, rdtype, search=False):
     rsp = {"1.0.0.10.in-addr.arpa.": "localhost."}.get(str(qname))
     if not rsp:
@@ -68,6 +127,21 @@ nB7cAzUtoA06AJ1DZTP74LcOaMj/rQhs5qLelTb6HwLR3At5ilHkP3K+XddUK/y2
 BwIDAQAB
 -----END PUBLIC KEY-----"""
 
+mock_alpn_challenge = deepcopy(mock_challenge)
+mock_alpn_challenge.type = main.ChallengeTypes.tls_alpn_01
+mock_alpn_challenge.token = "Y04KQ2An8anfd4de3Cmbt0296uo4nbSdpKcx0sD29D8"  # .jVHQIxagaHz0ubj_zvLAyJsuvO-njTCIUxDiiV3Kxxg
+mock_alpn_challenge.authorization.order.account.jwk = b"""-----BEGIN PUBLIC KEY-----
+MIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAqMgO7lNTAsB1FV6vwAvH
+jAuNRAcW3qOUx3MQhPu/K1C1l1d22qrlDOz/kN8vgOP8pFNFgzMOBb9cxe6EzRzB
+6jQavRTM2PRTsBCsc86oXJZQnA2YtAd+CpqJIWQA7mcC/6WCpCEr8/ABjHTJdByb
+3p2frjlcgW7DP+lZGgX29oK9rZ/85McRO/CNiIpKgYOb/rtxR6AGO5U4V7YDgn/w
+srZGzkNgZ7RzGnlcQ5QHSELZd+x7imLMrLd/m+6Fgi8lLpHWY9R80TPJcaCe2Bgt
+UHHT6/jwIPodRfe5yhwuiQRtFbOOHrgg4x/a0d2Pzmp17ORtpzWyvemTiVi64kR8
+q8XJ6esqCry0Zdzvn1ydnu1Io7R4OS6CIROjLx7EF6RfLt96lkZjrEzuIOryphM9
+3mrRYu0F1EwlB5gPY/12Dh4PTkbyqJn45r5V+bXaeXAQVCOj9wYcEnuv+AVFinvT
+DfhRQn/W5DAdM5PWQcCIrZn1Z4fKFZdl3Cm/PrRiRTmfAgMBAAE=
+-----END PUBLIC KEY-----"""
+
 orig_db = main.db
 
 
@@ -92,6 +166,13 @@ class ChallengeFunctionTester(unittest.TestCase):
             main.verify_challenge(mock_challenge)
             self.assertEqual(
                 mock_challenge.authorization.order.status, main.OrderStatus.ready
+            )
+
+    def test_verify_challenge_alpn_ok(self):
+        with unittest.mock.patch.object(main, "alpn_challenge", lambda x: (None, None)):
+            main.verify_challenge(mock_alpn_challenge)
+            self.assertEqual(
+                mock_alpn_challenge.authorization.order.status, main.OrderStatus.ready
             )
 
     def test_verify_challenge_err(self):
@@ -203,6 +284,85 @@ class ChallengeFunctionTester(unittest.TestCase):
             result = main.http_challenge(mock_challenge)
             self.assertEqual(result[0], "rejectedIdentifier")
 
+    def test_alpn_challenge_ok(self):
+        with unittest.mock.patch.object(
+            main.socket, "create_connection", MockedSocket
+        ), unittest.mock.patch.object(main.ssl, "SSLContext", MockedSSLContext):
+            result = main.alpn_challenge(mock_alpn_challenge)
+            self.assertEqual(result, (None, None))
+
+    def test_alpn_challenge_badsan(self):
+        with unittest.mock.patch.object(
+            main.socket, "create_connection", MockedSocket
+        ), unittest.mock.patch.object(main.ssl, "SSLContext", MockedSSLContext):
+            mock_challenge2 = deepcopy(mock_alpn_challenge)
+            mock_challenge2.authorization.identifier.value = "example.invalid"
+            result = main.alpn_challenge(mock_challenge2)
+            self.assertEqual(
+                result,
+                (
+                    "rejectedIdentifier",
+                    "san is ['example.test'], expected ['example.invalid']",
+                ),
+            )
+
+    def test_alpn_challenge_badtoken(self):
+        with unittest.mock.patch.object(
+            main.socket, "create_connection", MockedSocket
+        ), unittest.mock.patch.object(main.ssl, "SSLContext", MockedSSLContext):
+            mock_challenge2 = deepcopy(mock_alpn_challenge)
+            mock_challenge2.token = "token"
+            result = main.alpn_challenge(mock_challenge2)
+            self.assertEqual(
+                result, ("incorrectResponse", "key authorization hashes don't match")
+            )
+
+    def test_alpn_challenge_rejectspecial(self):
+        with unittest.mock.patch.object(
+            main.socket, "create_connection", MockedSocket
+        ), unittest.mock.patch.object(
+            main.ssl, "SSLContext", MockedSSLContext
+        ), unittest.mock.patch.object(
+            main, "additional_ip_address_checks", lambda _, __: "rejectMsg"
+        ):
+            result = main.alpn_challenge(mock_alpn_challenge)
+            self.assertEqual(result, ("rejectedIdentifier", "rejectMsg"))
+
+    def test_alpn_challenge_tlsversion(self):
+        with unittest.mock.patch.object(
+            main.socket, "create_connection", MockedSocket
+        ), unittest.mock.patch.object(main.ssl, "SSLContext", MockedSSLContextBadTLS):
+            result = main.alpn_challenge(mock_alpn_challenge)
+            self.assertEqual(
+                result, ("unauthorized", "could not negotiate TLS 1.2 or higher")
+            )
+
+    def test_alpn_challenge_alpnproto(self):
+        with unittest.mock.patch.object(
+            main.socket, "create_connection", MockedSocket
+        ), unittest.mock.patch.object(main.ssl, "SSLContext", MockedSSLContextBadALPN):
+            result = main.alpn_challenge(mock_alpn_challenge)
+            self.assertEqual(
+                result, ("unauthorized", "could not negotiate 'acme-tls/1'")
+            )
+
+    def test_alpn_challenge_noacmeextension(self):
+        with unittest.mock.patch.object(
+            main.socket, "create_connection", MockedSocket
+        ), unittest.mock.patch.object(main.ssl, "SSLContext", MockedSSLContextBadCert):
+            result = main.alpn_challenge(mock_alpn_challenge)
+            self.assertEqual(
+                result,
+                ("unauthorized", "certificate does not have expected extensions"),
+            )
+
+    def test_alpn_challenge_socketerror(self):
+        with unittest.mock.patch.object(
+            main.socket, "create_connection", MockedSocketBadConnection
+        ), unittest.mock.patch.object(main.ssl, "SSLContext", MockedSSLContext):
+            result = main.alpn_challenge(mock_alpn_challenge)
+            self.assertEqual(result, ("connection", "oops"))
+
     def test_check_csr_and_return_cert(self):
         csr_input = open("data_example.test.csr.bin", "rb").read()
         mock_order = Mock()
@@ -240,7 +400,7 @@ class ChallengeFunctionTester(unittest.TestCase):
             main.backend, "sign", lambda *x: ("a string, not bytes", None)
         ):
             result = main.check_csr_and_return_cert(csr_input, mock_order)
-            self.assertEqual(result, b"a string, not bytes") # utf-8-encoded bytes
+            self.assertEqual(result, b"a string, not bytes")  # utf-8-encoded bytes
 
         with unittest.mock.patch.object(
             main.backend, "sign", lambda *x: (None, "error")
