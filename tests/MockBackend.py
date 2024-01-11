@@ -47,3 +47,8 @@ class Backend:
 class NotBackend:
     def __init__(self, config):
         pass
+
+
+class RaisingBackend:
+    def __init__(self, config):
+        raise Exception("foo")

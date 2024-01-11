@@ -22,7 +22,7 @@ class MockedClient:
         def certificateRequest(self, userdata, csr, csrtype, none, certtype):
             bad_csr = open("data_nocn.csr", "rb").read()
             if csr == base64.b64encode(bad_csr):
-                raise zeep.exceptions.Fault("foo:bar")
+                raise zeep.exceptions.Fault("org.foo:bar")
             pkcs7_out = open("data_pkcs7.bin", "rb").read()
             return Mock(data=base64.b64encode(pkcs7_out))
 
@@ -68,14 +68,14 @@ class HelperFunctionTester(unittest.TestCase):
         )
         with unittest.mock.patch.object(EJBCABackend.zeep, "Client", MockedClient):
             backend = EJBCABackend.EjbcaBackend(config)
-            csr_input = open("data_example.test.csr.bin", "rb").read()
+            csr_input = open("data_example.test.csr.pem", "rb").read()
             retval = backend.sign(csr_input, "dn", "san", "email")
             self.assertEqual(retval, (None, "DN is missing field 'fieldmissing'"))
 
     def test_sign(self):
         with unittest.mock.patch.object(EJBCABackend.zeep, "Client", MockedClient):
             backend = EJBCABackend.EjbcaBackend(good_config)
-            csr_input = open("data_example.test.csr.bin", "rb").read()
+            csr_input = open("data_example.test.csr.pem", "rb").read()
             retval = backend.sign(csr_input, "dn", "san", "email")
             pemchain_out = open("data_pemchain.txt", "r").read()
             self.assertEqual(retval, (pemchain_out, None))
@@ -83,7 +83,7 @@ class HelperFunctionTester(unittest.TestCase):
     def test_failure(self):
         with unittest.mock.patch.object(EJBCABackend.zeep, "Client", MockedClient):
             backend = EJBCABackend.EjbcaBackend(good_config)
-            csr_input = open("data_nocn.csr", "rb").read()
+            csr_input = open("data_nocn.csr.pem", "rb").read()
             retval = backend.sign(csr_input, "dn", "san", "email")
             self.assertEqual(retval, (None, "bar"))
 

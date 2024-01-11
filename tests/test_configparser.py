@@ -33,7 +33,7 @@ class ConfigFunctionTester(unittest.TestCase):
                 main.configloader.load_config_and_backend,
                 f.name,
             )
-            f.write(b"backend=tests.MockBackend\n")
+            f.write(b"backend=MockBackend\n")
             f.flush()
             self.assertRaisesRegex(
                 ConfigError,
@@ -69,7 +69,25 @@ class ConfigFunctionTester(unittest.TestCase):
                 f.name,
             )
         with tempfile.NamedTemporaryFile() as f:
-            f.write(b"[serles]\nbackend=tests.MockBackend:NotBackend\n")
+            f.write(b"[serles]\nbackend=MockBackend:NotExisting\n")
+            f.flush()
+            self.assertRaisesRegex(
+                ConfigError,
+                r"backend does not define a NotExisting class \(wrong module loaded\?\)",
+                main.configloader.load_config_and_backend,
+                f.name,
+            )
+        with tempfile.NamedTemporaryFile() as f:
+            f.write(b"[serles]\nbackend=MockBackend:RaisingBackend\n")
+            f.flush()
+            self.assertRaisesRegex(
+                ConfigError,
+                "exception while initializing backend",
+                main.configloader.load_config_and_backend,
+                f.name,
+            )
+        with tempfile.NamedTemporaryFile() as f:
+            f.write(b"[serles]\nbackend=MockBackend:NotBackend\n")
             f.flush()
             self.assertRaisesRegex(
                 ConfigError,
@@ -80,7 +98,7 @@ class ConfigFunctionTester(unittest.TestCase):
         with tempfile.NamedTemporaryFile() as f:
             f.write(b"[serles]\n")
             f.write(b"database=sqlite:///:memory:\n")
-            f.write(b"backend=tests.MockBackend\n")
+            f.write(b"backend=MockBackend\n")
             f.write(b"subjectNameTemplate=x\n")
             f.write(b"forceTemplateDN=x\n")
             f.flush()
@@ -93,7 +111,7 @@ class ConfigFunctionTester(unittest.TestCase):
         with tempfile.NamedTemporaryFile() as f:
             f.write(b"[serles]\n")
             f.write(b"database=sqlite:///:memory:\n")
-            f.write(b"backend=tests.MockBackend\n")
+            f.write(b"backend=MockBackend\n")
             f.write(b"subjectNameTemplate=x\n")
             f.write(b"verifyPTR=x\n")
             f.flush()

@@ -260,8 +260,8 @@ class FlaskFunctionTester(unittest.TestCase):
         app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
         app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
         main.db.init_app(app)
-        main.db.create_all(app=app)
         with app.app_context():
+            main.db.create_all()
             nonce1 = main.Nonces.new()
             nonce2 = main.Nonces.new()
             self.assertNotEqual(nonce1, nonce2)

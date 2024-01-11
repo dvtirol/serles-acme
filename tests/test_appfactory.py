@@ -12,7 +12,7 @@ class AppFactoryTester(unittest.TestCase):
     def test_createapp(self):
         with tempfile.NamedTemporaryFile() as f:
             f.write(b"[serles]\n")
-            f.write(b"backend=tests.MockBackend\n")
+            f.write(b"backend=MockBackend\n")
             f.write(b"database = sqlite:///:memory:\n")
             f.write(b"subjectNameTemplate={SAN[0]}\n")
             f.flush()

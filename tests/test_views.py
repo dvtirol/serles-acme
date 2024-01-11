@@ -16,7 +16,8 @@ class ViewTester(unittest.TestCase):
         self.app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
         main.api.init_app(self.app)
         main.db.init_app(self.app)
-        main.db.create_all(app=self.app)
+        with self.app.app_context():
+            main.db.create_all()
         self.app.register_error_handler(Exception, main.exception_handler)
 
         self.payload = {}
@@ -234,3 +235,16 @@ class ViewTester(unittest.TestCase):
                 r = c.post("/order/foo/finalize")
                 self.assertEqual(r.status_code, 403)
                 self.assertEqual(r.json["type"], "urn:ietf:params:acme:error:unauthorized")
+
+    def test_notimplemented(self):
+        c = self.app.test_client()
+        with self.app.app_context():
+            r = c.post("/newAuthz")
+            self.assertEqual(r.status_code, 403)
+            self.assertEqual(r.json["type"], "urn:ietf:params:acme:error:unauthorized")
+            r = c.post("/revokeCert")
+            self.assertEqual(r.status_code, 403)
+            self.assertEqual(r.json["type"], "urn:ietf:params:acme:error:unauthorized")
+            r = c.post("/keyChange")
+            self.assertEqual(r.status_code, 403)
+            self.assertEqual(r.json["type"], "urn:ietf:params:acme:error:unauthorized")
