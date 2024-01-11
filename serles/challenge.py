@@ -113,24 +113,11 @@ def http_challenge(challenge):  # RFC8555 §8.3
         sock = socket.fromfd(r.raw.fileno(), socket.AF_INET, socket.SOCK_STREAM)
         remote_ip, *_ = sock.getpeername()
 
-    # additional checks that are useful in an enterprise setting, but not
-    # required by spec:
-    if config["allowedServerIpRanges"] and not ip_in_ranges(
-        remote_ip, config["allowedServerIpRanges"]
-    ):
-        return "rejectedIdentifier", f"{remote_ip} not in allowed ranges"
-    if config["excludeServerIpRanges"] and ip_in_ranges(
-        remote_ip, config["excludeServerIpRanges"]
-    ):
-        return "rejectedIdentifier", f"{remote_ip} in excluded range"
-    if config["verifyPTR"] and normalize(get_ptr(remote_ip)) != normalize(host):
-        return "rejectedIdentifier", f"PTR does not match"
+    reject = additional_ip_address_checks(remote_ip, host)
+    if reject:
+        return "rejectedIdentifier", reject
 
-    thumbprint = jwcrypto.jwk.JWK.from_pem(
-        challenge.authorization.order.account.jwk
-    ).thumbprint()
-
-    expect = f"{token}.{thumbprint}"
+    expect = key_authorization(challenge)
     if not r.ok or r.text != expect:
         return "incorrectResponse", f"expected {expect}, got {r.text}"
 
@@ -194,3 +181,44 @@ def check_csr_and_return_cert(csr_der, order):
         certificate = certificate.encode("utf-8")
 
     return certificate
+
+
+def key_authorization(challenge):
+    """ build key authorization string from challenge
+
+    Args:
+        challenge (models.Challenge): a challenge object
+
+    Returns:
+        str: key authorization string
+    """
+    token = challenge.token
+    thumbprint = jwcrypto.jwk.JWK.from_pem(
+        challenge.authorization.order.account.jwk
+    ).thumbprint()
+    return f"{token}.{thumbprint}"
+
+
+def additional_ip_address_checks(remote_ip, host):
+    """ perform additional checks on the remote IP address
+
+    These are useful in an enterprise setting, but not required by spec.
+
+    Args:
+        remote_ip (str): the IP address which we connected to for challenge
+            verification
+        host (str): dNSname which we resolved to get `remote_ip`
+
+    Returns:
+        Optional[str]: An error, if one occured, or None.
+    """
+    if config["allowedServerIpRanges"] and not ip_in_ranges(
+        remote_ip, config["allowedServerIpRanges"]
+    ):
+        return "rejectedIdentifier", f"{remote_ip} not in allowed ranges"
+    if config["excludeServerIpRanges"] and ip_in_ranges(
+        remote_ip, config["excludeServerIpRanges"]
+    ):
+        return "rejectedIdentifier", f"{remote_ip} in excluded range"
+    if config["verifyPTR"] and normalize(get_ptr(remote_ip)) != normalize(host):
+        return "rejectedIdentifier", f"PTR does not match"
