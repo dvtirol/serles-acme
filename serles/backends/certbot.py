@@ -30,15 +30,12 @@ class Backend:
 
     def __init__(self, config):
         self.path = "/usr/bin/certbot"
-        self.ini = None
         self.config = None
         self.config_file = None
 
         if "certbot" in config:
             if "path" in config['certbot']:
                 self.path = config['certbot']['path']
-            if "ini" in config['certbot']:
-                self.ini = config['certbot']['ini']
             if "config" in config['certbot']:
                 self.config = config['certbot']['config']
             if "config-file" in config['certbot']:
@@ -48,8 +45,8 @@ class Backend:
             raise Exception("cannot specify both certbot.config and certbot.config-file in config.ini")
 
         if not self.config_file and not self.config:
-            # Insure we load in our own config and do NOT fall back to system level certbot default config file
-            self.config_file = "/dev/null"
+            # Ensure we load in our own config and do NOT fall back to system level certbot default config file
+            raise Exception("no config specified, need either certbot.config or certbot.config-file")
 
         if not os.path.exists(self.path):
             raise Exception(f"certbot not found at '{self.path}', please specify correct path in certbot.path setting in config.ini")
