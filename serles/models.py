@@ -172,6 +172,7 @@ class Authorization(db.Model):  # RFC8555 §7.1.4
 class ChallengeTypes(Enum):
     http_01 = "http-01"
     dns_01 = "dns-01"
+    tls_alpn_01 = "tls-alpn-01"
 
 
 class ChallengeStatus(Enum):

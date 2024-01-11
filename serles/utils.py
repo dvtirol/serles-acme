@@ -99,3 +99,36 @@ def normalize(domain):
         str: normalized domain name.
     """
     return domain.rstrip(".").lower() if domain else None
+
+
+def ber_parse(b):
+    """ parse X.690 type/length/value tuple to string
+
+    python-cryptography for some reason does not trim type info and the length
+    off the value, so we do it by hand.
+
+    Args:
+        b (bytes): byte sequence
+
+    Returns:
+        str: decoded string
+    """
+    pop = lambda b: (next(iter(b[:1]), None), b[1:])
+    type_of_value, b = pop(b)
+
+    assert type_of_value in [0x04]  # OCTET_STRING
+
+    value, b = pop(b)
+    if value < 0x80:  # short form, direct length
+        length = value
+    elif value > 0x80:  # long form, number of bytes following with the length
+        length = 0
+        for _ in range(value & 0x7F):
+            tmp, b = pop(b)
+            length = (length << 8) + tmp
+    elif value == 0x80:  # indefinite length
+        length = None  # Note: not checking the terminating two NUL-bytes
+
+    assert len(b) == length or length is None
+
+    return b

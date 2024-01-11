@@ -1,5 +1,7 @@
+import ssl
 import json
 import socket
+import hashlib
 import requests
 import jwcrypto.jwk  # fedora package: python3-jwcrypto.noarch
 import jwcrypto.jws
@@ -10,7 +12,7 @@ from cryptography import x509  # python3-cryptography.x86_64
 from cryptography.hazmat.backends import default_backend as x509_backend
 from cryptography.hazmat.primitives import serialization
 
-from .utils import get_ptr, ip_in_ranges, normalize
+from .utils import get_ptr, ip_in_ranges, normalize, ber_parse
 from .configloader import get_config
 from .models import *
 from .exceptions import ACMEError
@@ -48,6 +50,8 @@ def verify_challenge(challenge):
 
     if challenge.type == ChallengeTypes.http_01:
         error, info = http_challenge(challenge)
+    elif challenge.type == ChallengeTypes.tls_alpn_01:
+        error, info = alpn_challenge(challenge)
     else:
         challenge.status = ChallengeStatus.invalid
         db.session.commit()
@@ -120,6 +124,67 @@ def http_challenge(challenge):  # RFC8555 §8.3
     expect = key_authorization(challenge)
     if not r.ok or r.text != expect:
         return "incorrectResponse", f"expected {expect}, got {r.text}"
+
+    return None, None  # no error occurred :)
+
+
+def alpn_challenge(challenge):  # RFC 8737 §3
+    """ verify a TLS-ALPN-01 Challenge
+
+    Args:
+        challenge (Challenge): The TLS-ALPN-01 challenge to verify.
+
+    Returns:
+        tuple(str,str): problem detail type of the error and  textual
+        description, or (None,None).
+    """
+    ALPN_PROTOCOL = "acme-tls/1"
+
+    host = challenge.authorization.identifier.value
+
+    context = ssl.SSLContext()  # server may return self-signed cert here
+    context.set_alpn_protocols([ALPN_PROTOCOL])
+    try:
+        with socket.create_connection((host, 443)) as sock, context.wrap_socket(
+            sock, server_hostname=host
+        ) as ssock:
+            remote_ip, *_ = ssock.getpeername()
+
+            reject = additional_ip_address_checks(remote_ip, host)
+            if reject:
+                return "rejectedIdentifier", reject
+
+            if ssock.version() not in ("TLSv1.2", "TLSv1.3"):
+                return "unauthorized", f"could not negotiate TLS 1.2 or higher"
+
+            if ssock.selected_alpn_protocol() != ALPN_PROTOCOL:
+                return "unauthorized", f"could not negotiate {ALPN_PROTOCOL!r}"
+
+            cert = x509.load_der_x509_certificate(
+                ssock.getpeercert(binary_form=True), x509_backend()
+            )
+    except (socket.error, ssl.SSLError, ValueError) as e:
+        return "connection", str(e)
+
+    try:
+        san = cert.extensions.get_extension_for_oid(
+            x509.oid.ExtensionOID.SUBJECT_ALTERNATIVE_NAME
+        ).value
+        if len(san) != 1 or san[0].value != host:
+            san_list = [e.value for e in san]
+            return "rejectedIdentifier", f"san is {san_list!r}, expected {[host]!r}"
+
+        acmeIdentifier = x509.ObjectIdentifier("1.3.6.1.5.5.7.1.31")  # RFC 8737 §6.1
+        authorization = ber_parse(
+            cert.extensions.get_extension_for_oid(acmeIdentifier).value.value
+        )
+        # Note: spec expects us to check criticality, but cryptography does not expose that.
+    except (x509.extensions.ExtensionNotFound, AttributeError) as e:
+        return "unauthorized", "certificate does not have expected extensions"
+
+    expect = hashlib.sha256(key_authorization(challenge).encode()).digest()
+    if authorization != expect:
+        return "incorrectResponse", "key authorization hashes don't match"
 
     return None, None  # no error occurred :)
 
