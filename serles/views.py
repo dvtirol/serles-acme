@@ -128,7 +128,10 @@ class NewOrder(Resource):
 
             identifier = Identifier(type=IdentifierTypes(type_), value=value)
             db.session.add(identifier)
-            challenges = [Challenge(type=ChallengeTypes.http_01)]
+            challenges = [
+                Challenge(type=ChallengeTypes.http_01),
+                Challenge(type=ChallengeTypes.tls_alpn_01),
+            ]
             for c in challenges:
                 db.session.add(c)
             authz = Authorization(identifier=identifier, challenges=challenges)
