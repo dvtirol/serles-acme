@@ -1,3 +1,4 @@
+import re
 from setuptools import setup, find_packages
 
 # read README (actually docs/index.rst):
@@ -5,6 +6,7 @@ from os import path
 this_directory = path.abspath(path.dirname(__file__))
 with open(path.join(this_directory, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
+    long_description = re.sub(r":ref:`(.*?)`", r"\1 `<https://serles-acme.readthedocs.io/en/latest/\1.html>`_", long_description)
 
 setup(
     name="serles-acme",
