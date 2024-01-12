@@ -5,6 +5,7 @@ import os
 
 from subprocess import STDOUT, PIPE
 
+
 class Backend:
     """ Serles Backend for certbot
 
@@ -34,22 +35,28 @@ class Backend:
         self.config_file = None
 
         if "certbot" in config:
-            if "path" in config['certbot']:
-                self.path = config['certbot']['path']
-            if "config" in config['certbot']:
-                self.config = config['certbot']['config']
-            if "config-file" in config['certbot']:
-                self.config_file = config['certbot']['config-file']
+            if "path" in config["certbot"]:
+                self.path = config["certbot"]["path"]
+            if "config" in config["certbot"]:
+                self.config = config["certbot"]["config"]
+            if "config-file" in config["certbot"]:
+                self.config_file = config["certbot"]["config-file"]
 
         if self.config_file and self.config:
-            raise Exception("cannot specify both certbot.config and certbot.config-file in config.ini")
+            raise Exception(
+                "cannot specify both certbot.config and certbot.config-file in config.ini"
+            )
 
         if not self.config_file and not self.config:
             # Ensure we load in our own config and do NOT fall back to system level certbot default config file
-            raise Exception("no config specified, need either certbot.config or certbot.config-file")
+            raise Exception(
+                "no config specified, need either certbot.config or certbot.config-file"
+            )
 
         if not os.path.exists(self.path):
-            raise Exception(f"certbot not found at '{self.path}', please specify correct path in certbot.path setting in config.ini")
+            raise Exception(
+                f"certbot not found at '{self.path}', please specify correct path in certbot.path setting in config.ini"
+            )
 
         if not os.access(self.path, os.X_OK):
             raise Exception(f"certbot '{self.path}' not executable")
@@ -88,10 +95,13 @@ class Backend:
                 cmd.extend(["-d", csr_san])
 
             res = subprocess.run(cmd, stdout=PIPE, stderr=STDOUT, check=False)
-            output = res.stdout.decode('utf-8')
+            output = res.stdout.decode("utf-8")
 
             if res.returncode:
-                return None, f"certbot exited with error {res.returncode} and output:\n{output}"
+                return (
+                    None,
+                    f"certbot exited with error {res.returncode} and output:\n{output}"
+                )
 
             with open(fullchain_file, "r") as new_chain:
                 return new_chain.read(), None
