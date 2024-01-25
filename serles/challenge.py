@@ -179,7 +179,7 @@ def alpn_challenge(challenge):  # RFC 8737 §3
             cert.extensions.get_extension_for_oid(acmeIdentifier).value.value
         )
         # Note: spec expects us to check criticality, but cryptography does not expose that.
-    except (x509.extensions.ExtensionNotFound, AttributeError) as e:
+    except (x509.extensions.ExtensionNotFound, AttributeError, ValueError) as e:
         return "unauthorized", "certificate does not have expected extensions"
 
     expect = hashlib.sha256(key_authorization(challenge).encode()).digest()

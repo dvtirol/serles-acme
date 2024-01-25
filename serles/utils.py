@@ -129,6 +129,7 @@ def ber_parse(b):
     elif value == 0x80:  # indefinite length
         length = None  # Note: not checking the terminating two NUL-bytes
 
-    assert len(b) == length or length is None
+    if length and len(b) != length:
+        raise ValueError("bad length prefix")
 
     return b
