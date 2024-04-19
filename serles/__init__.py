@@ -8,13 +8,16 @@ from .models import *
 from .exceptions import ACMEError
 from .flask_handlers import parse_jws, inject_nonce, index_header, exception_handler
 
+config = {}
+backend = None
 
 def create_app():
     """ initialize web app
 
     This function should be passed to the WSGI server.
     """
-    config, _ = get_config()
+    global config, backend
+    config, backend = get_config()
 
     app = Flask(__name__)
     app.config["PROPAGATE_EXCEPTIONS"] = True  # makes @app.errorhandler handle events
