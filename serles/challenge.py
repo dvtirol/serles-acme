@@ -5,6 +5,7 @@ import hashlib
 import requests
 import jwcrypto.jwk  # fedora package: python3-jwcrypto.noarch
 import jwcrypto.jws
+import serles
 
 from datetime import datetime, timezone
 
@@ -13,17 +14,8 @@ from cryptography.hazmat.backends import default_backend as x509_backend
 from cryptography.hazmat.primitives import serialization
 
 from .utils import get_ptr, ip_in_ranges, normalize, ber_parse
-from .configloader import get_config
 from .models import *
 from .exceptions import ACMEError
-
-config = {}
-backend = None
-
-
-def init_config():
-    global config, backend
-    config, backend = get_config()
 
 
 def verify_challenge(challenge):
@@ -234,10 +226,10 @@ def check_csr_and_return_cert(csr_der, order):
     csr_pem = csr.public_bytes(serialization.Encoding.PEM)
     email = order.account.contact
     subject_dn = csr.subject.rfc4514_string()
-    if config["forceTemplateDN"] or not subject_dn:
-        subject_dn = config["subjectNameTemplate"].format(SAN=alt_names, MAIL=email)
+    if serles.config["forceTemplateDN"] or not subject_dn:
+        subject_dn = serles.config["subjectNameTemplate"].format(SAN=alt_names, MAIL=email)
 
-    certificate, error = backend.sign(csr_pem, subject_dn, alt_names, email)
+    certificate, error = serles.backend.sign(csr_pem, subject_dn, alt_names, email)
 
     if error:
         raise ACMEError(error, 400, "badCSR")
@@ -277,13 +269,13 @@ def additional_ip_address_checks(remote_ip, host):
     Returns:
         Optional[str]: An error, if one occured, or None.
     """
-    if config["allowedServerIpRanges"] and not ip_in_ranges(
-        remote_ip, config["allowedServerIpRanges"]
+    if serles.config["allowedServerIpRanges"] and not ip_in_ranges(
+        remote_ip, serles.config["allowedServerIpRanges"]
     ):
         return "rejectedIdentifier", f"{remote_ip} not in allowed ranges"
-    if config["excludeServerIpRanges"] and ip_in_ranges(
-        remote_ip, config["excludeServerIpRanges"]
+    if serles.config["excludeServerIpRanges"] and ip_in_ranges(
+        remote_ip, serles.config["excludeServerIpRanges"]
     ):
         return "rejectedIdentifier", f"{remote_ip} in excluded range"
-    if config["verifyPTR"] and normalize(get_ptr(remote_ip)) != normalize(host):
+    if serles.config["verifyPTR"] and normalize(get_ptr(remote_ip)) != normalize(host):
         return "rejectedIdentifier", f"PTR does not match"

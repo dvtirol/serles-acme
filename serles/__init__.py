@@ -24,7 +24,6 @@ def create_app():
     app.config["SQLALCHEMY_DATABASE_URI"] = config["database"]
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-    init_config()  # views.init_config()
     api.init_app(app)
     db.init_app(app)
     with app.app_context():
