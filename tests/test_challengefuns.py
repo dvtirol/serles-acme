@@ -8,7 +8,6 @@ import mock
 import pytest
 from copy import deepcopy
 
-import serles
 import serles.challenge as main
 import MockBackend
 import dns.resolver
@@ -148,8 +147,8 @@ orig_db = main.db
 
 class ChallengeFunctionTester(unittest.TestCase):
     def setUp(self):
-        serles.backend = MockBackend.Backend([])
-        serles.config = {
+        main.backend = MockBackend.Backend([])
+        main.config = {
             "allowedServerIpRanges": None,
             "excludeServerIpRanges": None,
             "verifyPTR": False,
@@ -247,7 +246,7 @@ class ChallengeFunctionTester(unittest.TestCase):
         with unittest.mock.patch.object(
             main.requests, "Session", MockedRequestsResponseSession
         ), unittest.mock.patch.dict(
-            serles.config, {"allowedServerIpRanges": [ipaddress.ip_network("::1/128")]}
+            main.config, {"allowedServerIpRanges": [ipaddress.ip_network("::1/128")]}
         ):
             result = main.http_challenge(mock_challenge)
             self.assertEqual(result[0], "rejectedIdentifier")
@@ -256,7 +255,7 @@ class ChallengeFunctionTester(unittest.TestCase):
         with unittest.mock.patch.object(
             main.requests, "Session", MockedRequestsResponseSession
         ), unittest.mock.patch.dict(
-            serles.config, {"excludeServerIpRanges": [ipaddress.ip_network("10.0.0.0/8")]}
+            main.config, {"excludeServerIpRanges": [ipaddress.ip_network("10.0.0.0/8")]}
         ):
             result = main.http_challenge(mock_challenge)
             self.assertEqual(result[0], "rejectedIdentifier")
@@ -267,7 +266,7 @@ class ChallengeFunctionTester(unittest.TestCase):
         ), unittest.mock.patch.object(
             main.socket, "fromfd", lambda a, b, c: Mock(getpeername=lambda: ("1::2", 0))
         ), unittest.mock.patch.dict(
-            serles.config, {"allowedServerIpRanges": [ipaddress.ip_network("::1/128")]}
+            main.config, {"allowedServerIpRanges": [ipaddress.ip_network("::1/128")]}
         ):
             result = main.http_challenge(mock_challenge)
             self.assertEqual(result[0], "rejectedIdentifier")
@@ -276,7 +275,7 @@ class ChallengeFunctionTester(unittest.TestCase):
         with unittest.mock.patch.object(
             main.requests, "Session", MockedRequestsResponseSession
         ), unittest.mock.patch.dict(
-            serles.config, {"verifyPTR": True}
+            main.config, {"verifyPTR": True}
         ), unittest.mock.patch.object(
             dns.resolver, "query", mockedDNSResolve
         ), unittest.mock.patch.object(
@@ -398,13 +397,13 @@ class ChallengeFunctionTester(unittest.TestCase):
         self.assertEqual(result, good)
 
         with unittest.mock.patch.object(
-            serles.backend, "sign", lambda *x: ("a string, not bytes", None)
+            main.backend, "sign", lambda *x: ("a string, not bytes", None)
         ):
             result = main.check_csr_and_return_cert(csr_input, mock_order)
             self.assertEqual(result, b"a string, not bytes")  # utf-8-encoded bytes
 
         with unittest.mock.patch.object(
-            serles.backend, "sign", lambda *x: (None, "error")
+            main.backend, "sign", lambda *x: (None, "error")
         ):
             self.assertRaisesRegex(
                 main.ACMEError,
@@ -448,7 +447,7 @@ class ChallengeFunctionTester(unittest.TestCase):
         self.assertEqual(result, good)
 
         with unittest.mock.patch.object(
-            serles.backend, "sign", lambda *x: (None, "error")
+            main.backend, "sign", lambda *x: (None, "error")
         ):
             self.assertRaisesRegex(
                 main.ACMEError,

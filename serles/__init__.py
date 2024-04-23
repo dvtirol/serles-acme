@@ -8,22 +8,20 @@ from .models import *
 from .exceptions import ACMEError
 from .flask_handlers import parse_jws, inject_nonce, index_header, exception_handler
 
-config = {}
-backend = None
 
 def create_app():
     """ initialize web app
 
     This function should be passed to the WSGI server.
     """
-    global config, backend
-    config, backend = get_config()
+    config, _ = get_config()
 
     app = Flask(__name__)
     app.config["PROPAGATE_EXCEPTIONS"] = True  # makes @app.errorhandler handle events
     app.config["SQLALCHEMY_DATABASE_URI"] = config["database"]
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
+    init_config()  # views.init_config()
     api.init_app(app)
     db.init_app(app)
     with app.app_context():

@@ -3,6 +3,8 @@ import importlib
 import ipaddress
 from configparser import ConfigParser
 
+_config = None
+_backend = None
 
 def get_config():
     """
@@ -11,10 +13,13 @@ def get_config():
     Returns:
         (dict, object): A tuple of ``config``, ``backend``.
     """
-    config, backend = load_config_and_backend(
-        os.environ.get("CONFIG", "/etc/serles/config.ini")
-    )
-    return config, backend
+    global _config, _backend
+
+    if _config is None:
+        _config, _backend = load_config_and_backend(
+            os.environ.get("CONFIG", "/etc/serles/config.ini")
+        )
+    return _config, _backend
 
 
 class ConfigError(Exception):

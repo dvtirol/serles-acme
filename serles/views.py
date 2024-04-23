@@ -7,12 +7,17 @@ from flask_restful import Resource, Api
 from .utils import base64d
 from .models import *
 from .challenge import (
+    init_config as c_init_config,
     verify_challenge,
     check_csr_and_return_cert,
 )
 from .exceptions import ACMEError
 
 api = Api()
+
+
+def init_config():
+    c_init_config()
 
 
 @api.resource("/")
