@@ -42,7 +42,7 @@ class CertbotBackendTester(unittest.TestCase):
         ), unittest.mock.patch.object(CertbotBackend.os, "access", lambda a, b: True):
             config = dict(certbot=dict(path="/usr/local/bin/certbot", config="x"))
             backend = CertbotBackend.Backend(config)
-            self.assertNotEquals(backend, None)
+            self.assertNotEqual(backend, None)
 
     def test_backend_nocertbot(self):
         with unittest.mock.patch.object(
