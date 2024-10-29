@@ -2,9 +2,11 @@ import ssl
 import json
 import socket
 import hashlib
+import base64
 import requests
 import jwcrypto.jwk  # fedora package: python3-jwcrypto.noarch
 import jwcrypto.jws
+import dns.resolver
 
 from datetime import datetime, timezone
 
@@ -50,6 +52,8 @@ def verify_challenge(challenge):
 
     if challenge.type == ChallengeTypes.http_01:
         error, info = http_challenge(challenge)
+    elif challenge.type == ChallengeTypes.dns_01:
+        error, info = dns_challenge(challenge)
     elif challenge.type == ChallengeTypes.tls_alpn_01:
         error, info = alpn_challenge(challenge)
     else:
@@ -124,6 +128,42 @@ def http_challenge(challenge):  # RFC8555 §8.3
     expect = key_authorization(challenge)
     if not r.ok or r.text != expect:
         return "incorrectResponse", f"expected {expect}, got {r.text}"
+
+    return None, None  # no error occurred :)
+
+
+def dns_challenge(challenge):  # RFC8555 §8.4
+    """ verify a DNS-01 Challenge
+
+    Args:
+        challenge (Challenge): The DNS-01 challenge to verify.
+
+    Returns:
+        tuple(str,str): problem detail type of the error and  textual
+        description, or (None,None).
+    """
+    host = challenge.authorization.identifier.value
+
+    # Try to resolve the _acme-challenge record
+    try:
+        answers = dns.resolver.resolve(f"_acme-challenge.{host}", "TXT")
+    except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
+        return "dns", f"no TXT record found for _acme-challenge.{host}"
+    except dns.resolver.NoNameservers as e:
+        return "dnsNoNameServers", str(e)
+    except dns.resolver.YXDOMAIN as e:
+        return "dnsQueryTooLong", str(e)
+    except dns.resolver.LifetimeTimeout as e:
+        return "dnsTimeout", str(e)
+
+    # Verify the expected challenge is present
+    sha256_digest = hashlib.sha256(key_authorization(challenge).encode('utf-8')).digest()
+    expect = base64.urlsafe_b64encode(sha256_digest).rstrip(b"=")
+    for answer in answers:
+        if expect == answer.strings[0]:
+            break
+    else:
+        return "incorrectResponse", f"no token found in TXT record {expect}"
 
     return None, None  # no error occurred :)
 
