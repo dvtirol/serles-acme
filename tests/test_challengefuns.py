@@ -4,6 +4,7 @@ import requests
 import datetime
 import unittest
 from unittest.mock import Mock
+from unittest.mock import MagicMock
 import mock
 import pytest
 from copy import deepcopy
@@ -106,6 +107,38 @@ def mockedDNSResolve(qname, rdtype, search=False):
         raise dns.resolver.NXDOMAIN
     return [rsp]
 
+def MockedDNSResolveTXT(qname, rdtype, search=False):
+    if "Answer" in qname:
+        raise dns.resolver.NoAnswer
+    elif "NXDOMAIN" in qname:
+        raise dns.resolver.NXDOMAIN
+    elif "NoNameservers" in qname:
+        raise dns.resolver.NoNameservers
+    elif "YXDOMAIN" in qname:
+        raise dns.resolver.YXDOMAIN
+    elif "LifetimeTimeout" in qname:
+        raise dns.resolver.LifetimeTimeout
+    elif "empty.example.test" in qname:
+        response = MagicMock()
+        response.strings = [b""]
+        return [response]
+    elif "multiple.example.test" in qname:
+        response0 = MagicMock()
+        response0.strings = [b"Ohter record"]
+        response1 = MagicMock()
+        response1.strings = [b"jakqACx_UydeDJUABUWWv40pxm0c1qFM-yGWatF09qw", b"nulled record"]
+        response2 = MagicMock()
+        response2.strings = [b"unused record"]
+        return [response0,response1,response2]
+    elif "bad.example.test" in qname:
+        response = MagicMock()
+        response.strings = [b"bad challenge response"]
+        return [response]
+    else:
+        response = MagicMock()
+        response.strings = [b"jakqACx_UydeDJUABUWWv40pxm0c1qFM-yGWatF09qw"]
+        return [response]
+
 
 # a challenge object, mocked just enought to pass the tests:
 mock_authz = Mock(status=main.AuthzStatus.valid)
@@ -125,6 +158,21 @@ LkroZ2tX47S0hyyzDEO/9h4lIA+LCEfjsNPIkuXCAEYrv+bT+L1ztjIlmAwoR0sP
 pCslDx9PB3F55+fBaM6gtxEpJsgG14z7od65EZwDTzoFg4dKURTkTJZ7ZnwMe+zY
 nB7cAzUtoA06AJ1DZTP74LcOaMj/rQhs5qLelTb6HwLR3At5ilHkP3K+XddUK/y2
 BwIDAQAB
+-----END PUBLIC KEY-----"""
+
+mock_dns_challenge = deepcopy(mock_challenge)
+mock_dns_challenge.type = main.ChallengeTypes.dns_01
+mock_dns_challenge.token = "Y04KQ2An8anfd4de3Cmbt0296uo4nbSdpKcx0sD29D8"  # .jVHQIxagaHz0ubj_zvLAyJsuvO-njTCIUxDiiV3Kxxg
+mock_dns_challenge.authorization.order.account.jwk = b"""-----BEGIN PUBLIC KEY-----
+MIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAqMgO7lNTAsB1FV6vwAvH
+jAuNRAcW3qOUx3MQhPu/K1C1l1d22qrlDOz/kN8vgOP8pFNFgzMOBb9cxe6EzRzB
+6jQavRTM2PRTsBCsc86oXJZQnA2YtAd+CpqJIWQA7mcC/6WCpCEr8/ABjHTJdByb
+3p2frjlcgW7DP+lZGgX29oK9rZ/85McRO/CNiIpKgYOb/rtxR6AGO5U4V7YDgn/w
+srZGzkNgZ7RzGnlcQ5QHSELZd+x7imLMrLd/m+6Fgi8lLpHWY9R80TPJcaCe2Bgt
+UHHT6/jwIPodRfe5yhwuiQRtFbOOHrgg4x/a0d2Pzmp17ORtpzWyvemTiVi64kR8
+q8XJ6esqCry0Zdzvn1ydnu1Io7R4OS6CIROjLx7EF6RfLt96lkZjrEzuIOryphM9
+3mrRYu0F1EwlB5gPY/12Dh4PTkbyqJn45r5V+bXaeXAQVCOj9wYcEnuv+AVFinvT
+DfhRQn/W5DAdM5PWQcCIrZn1Z4fKFZdl3Cm/PrRiRTmfAgMBAAE=
 -----END PUBLIC KEY-----"""
 
 mock_alpn_challenge = deepcopy(mock_challenge)
@@ -166,6 +214,13 @@ class ChallengeFunctionTester(unittest.TestCase):
             main.verify_challenge(mock_challenge)
             self.assertEqual(
                 mock_challenge.authorization.order.status, main.OrderStatus.ready
+            )
+
+    def test_verify_challenge_dns_ok(self):
+        with unittest.mock.patch.object(main, "dns_challenge", lambda x: (None, None)):
+            main.verify_challenge(mock_dns_challenge)
+            self.assertEqual(
+                mock_dns_challenge.authorization.order.status, main.OrderStatus.ready
             )
 
     def test_verify_challenge_alpn_ok(self):
@@ -212,7 +267,7 @@ class ChallengeFunctionTester(unittest.TestCase):
 
     def test_verify_challenge_unsupported(self):
         with unittest.mock.patch.object(
-            mock_challenge, "type", main.ChallengeTypes.dns_01
+            mock_challenge, "type", None
         ):
             self.assertRaisesRegex(
                 main.ACMEError,
@@ -284,6 +339,98 @@ class ChallengeFunctionTester(unittest.TestCase):
             result = main.http_challenge(mock_challenge)
             self.assertEqual(result[0], "rejectedIdentifier")
 
+    # DNS challenge unit testing
+    def test_dns_challenge_ok(self):
+        mock_dns_challenge.authorization.identifier.value = "example.test"
+        with unittest.mock.patch.object(
+            dns.resolver, "query", MockedDNSResolveTXT
+        ), unittest.mock.patch.object(
+            dns.resolver, "resolve", MockedDNSResolveTXT
+        ):
+            result = main.dns_challenge(mock_dns_challenge)
+            self.assertEqual(result, (None, None))
+
+    def test_dns_challenge_multiple_txt_ok(self):
+        mock_dns_challenge.authorization.identifier.value = "multiple.example.test"
+        with unittest.mock.patch.object(
+            dns.resolver, "query", MockedDNSResolveTXT
+        ), unittest.mock.patch.object(
+            dns.resolver, "resolve", MockedDNSResolveTXT
+        ):
+            result = main.dns_challenge(mock_dns_challenge)
+            self.assertEqual(result, (None, None))
+
+    def test_dns_challenge_txt_empty(self):
+        mock_dns_challenge.authorization.identifier.value = "empty.example.test"
+        with unittest.mock.patch.object(
+            dns.resolver, "query", MockedDNSResolveTXT
+        ), unittest.mock.patch.object(
+            dns.resolver, "resolve", MockedDNSResolveTXT
+        ):
+            result = main.dns_challenge(mock_dns_challenge)
+            self.assertEqual(result[0], "incorrectResponse")
+
+    def test_dns_challenge_bad_txt(self):
+        mock_dns_challenge.authorization.identifier.value = "bad.example.test"
+        with unittest.mock.patch.object(
+            dns.resolver, "query", MockedDNSResolveTXT
+        ), unittest.mock.patch.object(
+            dns.resolver, "resolve", MockedDNSResolveTXT
+        ):
+            result = main.dns_challenge(mock_dns_challenge)
+            self.assertEqual(result[0], "incorrectResponse")
+
+    def test_dns_challenge_no_answer(self):
+        mock_dns_challenge.authorization.identifier.value = "NoAnswer"
+        with unittest.mock.patch.object(
+            dns.resolver, "query", MockedDNSResolveTXT
+        ), unittest.mock.patch.object(
+            dns.resolver, "resolve", MockedDNSResolveTXT
+        ):
+            result = main.dns_challenge(mock_dns_challenge)
+            self.assertEqual(result, ("dns", f"no TXT record found for _acme-challenge.NoAnswer"))
+
+    def test_dns_challenge_nxdomain(self):
+        mock_dns_challenge.authorization.identifier.value = "NXDOMAIN"
+        with unittest.mock.patch.object(
+            dns.resolver, "query", MockedDNSResolveTXT
+        ), unittest.mock.patch.object(
+            dns.resolver, "resolve", MockedDNSResolveTXT
+        ):
+            result = main.dns_challenge(mock_dns_challenge)
+            self.assertEqual(result, ("dns", "no TXT record found for _acme-challenge.NXDOMAIN"))
+
+    def test_dns_challenge_nonameservers(self):
+        mock_dns_challenge.authorization.identifier.value = "NoNameservers"
+        with unittest.mock.patch.object(
+            dns.resolver, "query", MockedDNSResolveTXT
+        ), unittest.mock.patch.object(
+            dns.resolver, "resolve", MockedDNSResolveTXT
+        ):
+            result = main.dns_challenge(mock_dns_challenge)
+            self.assertEqual(result[0], "dnsNoNameServers")
+
+    def test_dns_challenge_querytoolong(self):
+        mock_dns_challenge.authorization.identifier.value = "YXDOMAIN"
+        with unittest.mock.patch.object(
+            dns.resolver, "query", MockedDNSResolveTXT
+        ), unittest.mock.patch.object(
+            dns.resolver, "resolve", MockedDNSResolveTXT
+        ):
+            result = main.dns_challenge(mock_dns_challenge)
+            self.assertEqual(result[0], "dnsQueryTooLong")
+
+    def test_dns_challenge_timeout(self):
+        mock_dns_challenge.authorization.identifier.value = "LifetimeTimeout"
+        with unittest.mock.patch.object(
+            dns.resolver, "query", MockedDNSResolveTXT
+        ), unittest.mock.patch.object(
+            dns.resolver, "resolve", MockedDNSResolveTXT
+        ):
+            result = main.dns_challenge(mock_dns_challenge)
+            self.assertEqual(result[0], "dnsTimeout")
+
+    # ALPN challenge unit testing
     def test_alpn_challenge_ok(self):
         with unittest.mock.patch.object(
             main.socket, "create_connection", MockedSocket
