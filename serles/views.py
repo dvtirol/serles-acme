@@ -130,6 +130,7 @@ class NewOrder(Resource):
             db.session.add(identifier)
             challenges = [
                 Challenge(type=ChallengeTypes.http_01),
+                Challenge(type=ChallengeTypes.dns_01),
                 Challenge(type=ChallengeTypes.tls_alpn_01),
             ]
             for c in challenges:
