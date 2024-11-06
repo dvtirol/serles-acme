@@ -116,7 +116,8 @@ def ber_parse(b):
     pop = lambda b: (next(iter(b[:1]), None), b[1:])
     type_of_value, b = pop(b)
 
-    assert type_of_value in [0x04]  # OCTET_STRING
+    if type_of_value not in [0x04]:  # OCTET_STRING
+        raise TypeError("unsupported ASN.1 type")
 
     value, b = pop(b)
     if value < 0x80:  # short form, direct length
@@ -129,7 +130,7 @@ def ber_parse(b):
     elif value == 0x80:  # indefinite length
         length = None  # Note: not checking the terminating two NUL-bytes
 
-    if length and len(b) != length:
+    if length is not None and len(b) != length:
         raise ValueError("bad length prefix")
 
     return b

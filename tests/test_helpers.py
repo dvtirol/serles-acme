@@ -74,18 +74,16 @@ class HelperFunctionTester(unittest.TestCase):
 
     def test_berparser(self):
         # test non-OCTET_STRING value
-        self.assertRaises(
-            AssertionError,
-            main.ber_parse,
-            (b"\x00",),
-        )
+        self.assertRaises(TypeError, main.ber_parse, b"\x00")
 
-        # test with bad length
-        self.assertRaises(
-            AssertionError,
-            main.ber_parse,
-            (b"\x04\x00foo",),
-        )
+        # test with zero length
+        self.assertRaises(ValueError, main.ber_parse, b"\x04\x00foo")
+
+        # test with too short length
+        self.assertRaises(ValueError, main.ber_parse, b"\x04\x01foo")
+
+        # test with too long length
+        self.assertRaises(ValueError, main.ber_parse, b"\x04\x04foo")
 
         # test with indeterminate length
         self.assertEqual(b"foo", main.ber_parse(b"\x04\x80foo"))
@@ -95,3 +93,9 @@ class HelperFunctionTester(unittest.TestCase):
 
         # test with multi byte length
         self.assertEqual(b"foo", main.ber_parse(b"\x04\x81\x03foo"))
+
+        # test zero length string with 1 byte length
+        self.assertEqual(b"", main.ber_parse(b"\x04\x00"))
+
+        # test zero length string with multi byte length
+        self.assertEqual(b"", main.ber_parse(b"\x04\x81\x00"))
