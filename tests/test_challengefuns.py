@@ -38,7 +38,12 @@ class MockedRequestsErrorSession:
 class MockedRequestsResponseSession:
     def get(self, *args, **kwargs):
         mock_response = Mock()
-        mock_response.raw.connection.sock.getpeername = lambda: ("10.0.0.1", "")
+        host = args[0].split("/")[2]
+        peer = {
+            "example.test": "10.0.0.1",
+            "example.invalid": "10.0.0.2",
+        }
+        mock_response.raw.connection.sock.getpeername = lambda: (peer[host], "")
         mock_response.text = "something wrong"
         return mock_response
 
@@ -336,6 +341,20 @@ class ChallengeFunctionTester(unittest.TestCase):
         ), unittest.mock.patch.object(
             dns.resolver, "resolve", mockedDNSResolve
         ):
+            result = main.http_challenge(mock_challenge)
+            self.assertEqual(result[0], "rejectedIdentifier")
+
+    def test_http_challenge_ptr_nxdomain(self):
+        with unittest.mock.patch.object(
+            main.requests, "Session", MockedRequestsResponseSession
+        ), unittest.mock.patch.dict(
+            main.config, {"verifyPTR": True}
+        ), unittest.mock.patch.object(
+            dns.resolver, "query", mockedDNSResolve
+        ), unittest.mock.patch.object(
+            dns.resolver, "resolve", mockedDNSResolve
+        ):
+            mock_challenge.authorization.identifier.value = "example.invalid"
             result = main.http_challenge(mock_challenge)
             self.assertEqual(result[0], "rejectedIdentifier")
 
