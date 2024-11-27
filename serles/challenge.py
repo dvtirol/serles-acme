@@ -9,10 +9,13 @@ import jwcrypto.jws
 import dns.resolver
 
 from datetime import datetime, timezone
+from ipaddress import IPv4Address, IPv6Address, IPv4Network, IPv6Network, ip_address
+from typing import Union
 
 from cryptography import x509  # python3-cryptography.x86_64
 from cryptography.hazmat.backends import default_backend as x509_backend
 from cryptography.hazmat.primitives import serialization
+from cryptography.x509 import SubjectAlternativeName
 
 from .utils import get_ptr, ip_in_ranges, normalize, ber_parse
 from .configloader import get_config
@@ -22,6 +25,44 @@ from .exceptions import ACMEError
 config = {}
 backend = None
 
+class ChallengeIdentifier:
+    type: IdentifierTypes
+    value: Union[str, IPv4Address, IPv6Address]
+
+    def ejbca_identifier(self):
+        if self.type == IdentifierTypes.dns:
+            return f"DNSNAME={self.value}"
+        elif self.type == IdentifierTypes.ip:
+            return f"IPAddress={self.value}"
+        else:
+            return None
+
+    def __init__(self, type: IdentifierTypes, value):
+        self.type = type
+        if self.type == IdentifierTypes.dns:
+            if not isinstance(value, str):
+                raise TypeError("DNS identifier value must be strings")
+            self.value = value
+        elif self.type == IdentifierTypes.ip:
+            if isinstance(value, (IPv4Address, IPv6Address)):
+                self.value = value
+            elif isinstance(value, (IPv4Network, IPv6Network)):
+                self.value = value.network_address
+            elif isinstance(value, str):
+                self.value = ip_address(value)
+            else:
+                raise TypeError("IP identifier value must be an supported IP type or string")
+        else:
+            raise ValueError("Invalid identifier type")
+
+    def __eq__(self, other):
+        if isinstance(other, ChallengeIdentifier):
+            return self.type == other.type and self.value == other.value
+        else:
+            return False
+
+    def __str__(self) -> str:
+        return f"{str(self.type).upper()}:{self.value}"
 
 def init_config():
     global config, backend
@@ -229,7 +270,7 @@ def alpn_challenge(challenge):  # RFC 8737 §3
     return None, None  # no error occurred :)
 
 
-def check_csr_and_return_cert(csr_der, order):
+def check_csr_and_return_cert(csr_der: bytes, order: Order):
     """ validate CSR and pass to backend
 
     Checks that the CSR only contains domains from previously validated
@@ -247,9 +288,18 @@ def check_csr_and_return_cert(csr_der, order):
     """
     csr = x509.load_der_x509_csr(csr_der, x509_backend())
     try:
-        alt_names = csr.extensions.get_extension_for_oid(
+        san: SubjectAlternativeName = csr.extensions.get_extension_for_oid(
             x509.oid.ExtensionOID.SUBJECT_ALTERNATIVE_NAME
-        ).value.get_values_for_type(x509.DNSName)
+        ).value
+        alt_names_dns = san.get_values_for_type(x509.DNSName)
+        alt_names_ip = san.get_values_for_type(x509.IPAddress)
+        alt_names: list[ChallengeIdentifier] = [
+            ChallengeIdentifier(IdentifierTypes.dns, dns)
+                for dns in alt_names_dns
+        ] + [
+            ChallengeIdentifier(IdentifierTypes.ip, ip)
+                for ip in alt_names_ip
+        ]
     except:
         alt_names = []
     try:
@@ -259,14 +309,15 @@ def check_csr_and_return_cert(csr_der, order):
     except IndexError:
         # certbot does not set Subject Name, only SANs
         # https://github.com/certbot/certbot/issues/4922
-        common_name = alt_names[0]
+        common_name = alt_names[0].value
 
-    if not common_name in alt_names:  # chrome ignores CN, so write CN to SAN
-        alt_names.insert(0, common_name)
+    common_name_ident = ChallengeIdentifier(IdentifierTypes.dns, common_name)
+    if not common_name_ident in alt_names:  # chrome ignores CN, so write CN to SAN
+        alt_names.insert(0, common_name_ident)
 
     # since we pass the CN and SANs to the backend, make sure the client only
     # specified those that we verified before:
-    order_identifiers = {ident.value for ident in order.identifiers}
+    order_identifiers = {ChallengeIdentifier(ident.type, ident.value) for ident in order.identifiers}
     csr_identifiers = {*alt_names}  # convert list to set
     if order_identifiers != csr_identifiers:
         raise ACMEError(f"{order_identifiers} != {csr_identifiers}", 400, "badCSR")
