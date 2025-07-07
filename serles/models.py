@@ -164,7 +164,7 @@ class Authorization(db.Model):  # RFC8555 §7.1.4
             "status": self.status.value, # required
             "expires": self.expires.isoformat() if self.expires else None,  # required
             "challenges": [chall.serialized for chall in self.challenges], # required
-            "wildcard": self.wildcard, # optional
+            "wildcard": True if self.wildcard else None, # optional
         }.items() if v is not None}
         # fmt: on
 
