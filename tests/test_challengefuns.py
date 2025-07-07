@@ -5,7 +5,7 @@ import datetime
 import unittest
 from unittest.mock import Mock
 from unittest.mock import MagicMock
-import mock
+from unittest.mock import PropertyMock
 import pytest
 from copy import deepcopy
 
@@ -33,6 +33,16 @@ class MockedRequestsSessionPeerNameFallback:
 class MockedRequestsErrorSession:
     def get(self, *args, **kwargs):
         raise requests.ConnectionError()
+
+
+class MockedRequestAbortedChunk:
+    def get(self, *args, **kwargs):
+        mock_response = Mock()
+        mock_response.raw.connection.sock.getpeername = lambda: ("", "")
+        type(mock_response).text = PropertyMock(
+            side_effect=requests.exceptions.ChunkedEncodingError
+        )
+        return mock_response
 
 
 class MockedRequestsResponseSession:
@@ -291,6 +301,13 @@ class ChallengeFunctionTester(unittest.TestCase):
     def test_http_challenge_connection(self):
         with unittest.mock.patch.object(
             main.requests, "Session", MockedRequestsErrorSession
+        ):
+            result = main.http_challenge(mock_challenge)
+            self.assertEqual(result[0], "connection")
+
+    def test_http_challenge_abortedchunked(self):
+        with unittest.mock.patch.object(
+            main.requests, "Session", MockedRequestAbortedChunk
         ):
             result = main.http_challenge(mock_challenge)
             self.assertEqual(result[0], "connection")

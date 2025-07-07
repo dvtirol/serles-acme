@@ -125,8 +125,14 @@ def http_challenge(challenge):  # RFC8555 §8.3
     if reject:
         return "rejectedIdentifier", reject
 
+    # consume the response body (and close connection)
+    try:
+        found = r.text
+    except (requests.exceptions.ChunkedEncodingError, requests.ReadTimeout) as e:
+        return "connection", f"server did not send a proper response"
+
     expect = key_authorization(challenge)
-    if not r.ok or r.text != expect:
+    if not r.ok or found != expect:
         return "incorrectResponse", f"expected {expect}, got {r.text}"
 
     return None, None  # no error occurred :)
