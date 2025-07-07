@@ -29,6 +29,9 @@ excludeServerIpRanges =
 # record exists:
 verifyPTR = false
 
+# whether to allow wildcard domain certificates, e.g. *.example.com:
+allowWildcards = false
+
 # if the CSR does not set a Subject Name, fill it in with this template (you
 # can use the special variable {SAN} to access subjectAltName.dnsName values
 # and {MAIL} to access the requesting user's email address):

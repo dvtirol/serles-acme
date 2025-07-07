@@ -123,4 +123,9 @@ def load_config_and_backend(filename):
     except ValueError:
         raise ConfigError("[serles]verifyPTR= must be 'true' or 'false'") from None
 
+    try:
+        config["allowWildcards"] = cparser["serles"].getboolean("allowWildcards", fallback=False)
+    except ValueError:
+        raise ConfigError("[serles]allowWildcards= must be 'true' or 'false'") from None
+
     return config, backend

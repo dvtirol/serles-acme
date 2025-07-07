@@ -78,7 +78,7 @@ class Order(db.Model):  # RFC8555 §7.1.3
         return {k:v for k,v in {
             "status": self.status.value, # required
             "expires": self.expires.isoformat() if self.expires else None, # required
-            "identifiers": [ident.serialized for ident in self.identifiers], # required
+            "identifiers": [ident.serialize() for ident in self.identifiers], # required
             "notBefore": self.notBefore.isoformat() if self.notBefore else None,  # optional
             "notAfter": self.notAfter.isoformat() if self.notAfter else None,  # optional
             "error": json.loads(self.error) if self.error else None, # optional
@@ -104,15 +104,17 @@ class Identifier(db.Model):
     order_id = db.Column(db.String(45), db.ForeignKey("order.id"))
     authz_id = db.Column(db.String(45), db.ForeignKey("authorization.id"))
 
-    @property
-    def serialized(self):
+    def serialize(self, wildcard=False):
+        # NOTE: depending on whether this gets embedded into an Order or an
+        # Authorization object, we need to handle wildcards differently. For
+        # Orders, the '*.' prefix is preserved, while for Authorizations it is
+        # stripped. c.f. RFC 8555 §§ 7.1.3 and 7.1.4.
         # fmt: off
         return {
             "type": self.type.value,
-            "value": self.value,
+            "value": self.value.removeprefix("*.") if wildcard else self.value,
         }
         # fmt: on
-
 
 class AuthzStatus(Enum):
     """ `RFC 8555 § 7.1.6 (Fig.2) <https://tools.ietf.org/html/rfc8555#page-32>`_ """
@@ -160,7 +162,7 @@ class Authorization(db.Model):  # RFC8555 §7.1.4
     def serialized(self):
         # fmt: off
         return {k:v for k,v in {
-            "identifier": self.identifier.serialized, # required
+            "identifier": self.identifier.serialize(self.wildcard), # required
             "status": self.status.value, # required
             "expires": self.expires.isoformat() if self.expires else None,  # required
             "challenges": [chall.serialized for chall in self.challenges], # required

@@ -126,16 +126,24 @@ class NewOrder(Resource):
                     "can only do 'dns' type identifiers", 400, "rejectedIdentifier"
                 )
 
+            # check if a wildcard identifier was requested (§7.1.3).
+            wildcard = value.startswith("*.") and type_ == "dns"
+            basename = value.removeprefix("*.") if wildcard else value
+
             identifier = Identifier(type=IdentifierTypes(type_), value=value)
             db.session.add(identifier)
             challenges = [
+                Challenge(type=ChallengeTypes.dns_01),
+            ] if wildcard else [
                 Challenge(type=ChallengeTypes.http_01),
                 Challenge(type=ChallengeTypes.dns_01),
                 Challenge(type=ChallengeTypes.tls_alpn_01),
             ]
             for c in challenges:
                 db.session.add(c)
-            authz = Authorization(identifier=identifier, challenges=challenges)
+            authz = Authorization(
+                identifier=identifier, challenges=challenges, wildcard=wildcard
+            )
             db.session.add(authz)
             requested_identifiers.append(identifier)
             required_authorizations.append(authz)

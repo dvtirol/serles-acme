@@ -150,6 +150,11 @@ def dns_challenge(challenge):  # RFC8555 §8.4
     """
     host = challenge.authorization.identifier.value
 
+    if challenge.authorization.wildcard:
+        host = host.removeprefix("*.")
+        if not config["allowWildcards"]:
+            return "rejectedIdentifier", f"wildcard certificate issuance disallowed"
+
     # Try to resolve the _acme-challenge record
     try:
         answers = dns.resolver.resolve(f"_acme-challenge.{host}", "TXT")

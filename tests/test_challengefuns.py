@@ -177,8 +177,25 @@ BwIDAQAB
 
 mock_dns_challenge = deepcopy(mock_challenge)
 mock_dns_challenge.type = main.ChallengeTypes.dns_01
+mock_dns_challenge.authorization.wildcard = None
 mock_dns_challenge.token = "Y04KQ2An8anfd4de3Cmbt0296uo4nbSdpKcx0sD29D8"  # .jVHQIxagaHz0ubj_zvLAyJsuvO-njTCIUxDiiV3Kxxg
 mock_dns_challenge.authorization.order.account.jwk = b"""-----BEGIN PUBLIC KEY-----
+MIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAqMgO7lNTAsB1FV6vwAvH
+jAuNRAcW3qOUx3MQhPu/K1C1l1d22qrlDOz/kN8vgOP8pFNFgzMOBb9cxe6EzRzB
+6jQavRTM2PRTsBCsc86oXJZQnA2YtAd+CpqJIWQA7mcC/6WCpCEr8/ABjHTJdByb
+3p2frjlcgW7DP+lZGgX29oK9rZ/85McRO/CNiIpKgYOb/rtxR6AGO5U4V7YDgn/w
+srZGzkNgZ7RzGnlcQ5QHSELZd+x7imLMrLd/m+6Fgi8lLpHWY9R80TPJcaCe2Bgt
+UHHT6/jwIPodRfe5yhwuiQRtFbOOHrgg4x/a0d2Pzmp17ORtpzWyvemTiVi64kR8
+q8XJ6esqCry0Zdzvn1ydnu1Io7R4OS6CIROjLx7EF6RfLt96lkZjrEzuIOryphM9
+3mrRYu0F1EwlB5gPY/12Dh4PTkbyqJn45r5V+bXaeXAQVCOj9wYcEnuv+AVFinvT
+DfhRQn/W5DAdM5PWQcCIrZn1Z4fKFZdl3Cm/PrRiRTmfAgMBAAE=
+-----END PUBLIC KEY-----"""
+
+mock_wildcard_challenge = deepcopy(mock_challenge)
+mock_wildcard_challenge.type = main.ChallengeTypes.dns_01
+mock_wildcard_challenge.token = "Y04KQ2An8anfd4de3Cmbt0296uo4nbSdpKcx0sD29D8"  # .jVHQIxagaHz0ubj_zvLAyJsuvO-njTCIUxDiiV3Kxxg
+mock_wildcard_challenge.authorization.wildcard = True
+mock_wildcard_challenge.authorization.order.account.jwk = b"""-----BEGIN PUBLIC KEY-----
 MIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAqMgO7lNTAsB1FV6vwAvH
 jAuNRAcW3qOUx3MQhPu/K1C1l1d22qrlDOz/kN8vgOP8pFNFgzMOBb9cxe6EzRzB
 6jQavRTM2PRTsBCsc86oXJZQnA2YtAd+CpqJIWQA7mcC/6WCpCEr8/ABjHTJdByb
@@ -217,6 +234,7 @@ class ChallengeFunctionTester(unittest.TestCase):
             "verifyPTR": False,
             "forceTemplateDN": True,
             "subjectNameTemplate": "{SAN[0]}",
+            "allowWildcards": False,
         }
         main.db = Mock()  # don't commit into the nonexisting database
         os.chdir(os.path.dirname(__file__))
@@ -385,6 +403,28 @@ class ChallengeFunctionTester(unittest.TestCase):
         ):
             result = main.dns_challenge(mock_dns_challenge)
             self.assertEqual(result, (None, None))
+
+    def test_dns_challenge_wildcardforbidden(self):
+        mock_wildcard_challenge.authorization.identifier.value = "*.example.test"
+        with unittest.mock.patch.object(
+            dns.resolver, "query", MockedDNSResolveTXT
+        ), unittest.mock.patch.object(
+            dns.resolver, "resolve", MockedDNSResolveTXT
+        ):
+            result = main.dns_challenge(mock_wildcard_challenge)
+            self.assertEqual(result[0], "rejectedIdentifier")
+
+    def test_dns_challenge_wildcardallowed(self):
+        mock_wildcard_challenge.authorization.identifier.value = "*.example.test"
+        with unittest.mock.patch.object(
+            dns.resolver, "query", MockedDNSResolveTXT
+        ), unittest.mock.patch.object(
+            dns.resolver, "resolve", MockedDNSResolveTXT
+        ):
+            main.config['allowWildcards'] = True
+            result = main.dns_challenge(mock_wildcard_challenge)
+            self.assertEqual(result, (None, None))
+            main.config['allowWildcards'] = False
 
     def test_dns_challenge_multiple_txt_ok(self):
         mock_dns_challenge.authorization.identifier.value = "multiple.example.test"
