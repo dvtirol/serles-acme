@@ -4,7 +4,6 @@ import unittest.mock
 from unittest.mock import Mock
 from serles.backends import ejbca as EJBCABackend
 import zeep
-import mock
 
 
 class MockedClient:
