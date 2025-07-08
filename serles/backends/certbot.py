@@ -92,7 +92,7 @@ class Backend:
             ]
 
             for csr_san in subjectAltNames:
-                cmd.extend(["-d", csr_san])
+                cmd.extend(["-d", str(csr_san.value)])
 
             res = subprocess.run(cmd, stdout=PIPE, stderr=STDOUT, check=False)
             output = res.stdout.decode("utf-8")

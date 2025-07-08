@@ -73,7 +73,7 @@ class EjbcaBackend:
         self.userData = self.client.get_type("ns0:userDataVOWS")
 
     def sign(self, csr, subjectDN, subjectAltNames, email):
-        subjectAltName = ",".join(f"DNSNAME={name}" for name in subjectAltNames)
+        subjectAltName = ",".join(name.ejbca_identifier() for name in subjectAltNames)
 
         csr_obj = x509.load_pem_x509_csr(csr, x509_backend())
         csr_der = csr_obj.public_bytes(serialization.Encoding.DER)

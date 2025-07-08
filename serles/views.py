@@ -1,3 +1,4 @@
+from ipaddress import ip_address
 import jwcrypto.jwk  # fedora package: python3-jwcrypto.noarch
 import jwcrypto.jws
 
@@ -121,18 +122,35 @@ class NewOrder(Resource):
                 raise ACMEError("identifier not valid", 400, "malformed")
             type_ = identifier.get("type")
             value = identifier.get("value")
-            if type_ != "dns":
+            try:
+                ident_type = IdentifierTypes(type_)
+            except ValueError:
                 raise ACMEError(
-                    "can only do 'dns' type identifiers", 400, "rejectedIdentifier"
+                    "unsupported identifier type", 400, "rejectedIdentifier"
                 )
+            if ident_type == IdentifierTypes.ip:
+                try:
+                    value = ip_address(value)   # raises on invalid IP
+                except ValueError:
+                    raise ACMEError(
+                        "invalid IP address", 400, "rejectedIdentifier"
+                    )
 
-            identifier = Identifier(type=IdentifierTypes(type_), value=value)
+            identifier = Identifier(type=ident_type, value=value)
             db.session.add(identifier)
-            challenges = [
-                Challenge(type=ChallengeTypes.http_01),
-                Challenge(type=ChallengeTypes.dns_01),
-                Challenge(type=ChallengeTypes.tls_alpn_01),
-            ]
+            if ident_type == IdentifierTypes.ip:
+                # RFC8738 § 7
+                # "dns-01" challenge MUST NOT be used to validate IP identifiers.
+                challenges = [
+                    Challenge(type=ChallengeTypes.http_01),
+                    Challenge(type=ChallengeTypes.tls_alpn_01),
+                ]
+            else:
+                challenges = [
+                    Challenge(type=ChallengeTypes.http_01),
+                    Challenge(type=ChallengeTypes.dns_01),
+                    Challenge(type=ChallengeTypes.tls_alpn_01),
+                ]
             for c in challenges:
                 db.session.add(c)
             authz = Authorization(identifier=identifier, challenges=challenges)
