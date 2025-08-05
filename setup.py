@@ -10,9 +10,9 @@ with open(path.join(this_directory, 'README.rst'), encoding='utf-8') as f:
 
 setup(
     name="serles-acme",
-    version="1.1.0",
+    version="1.2.0",
     packages=find_packages(),
-    python_requires=">=3.6",
+    python_requires=">=3.9",
     scripts=["bin/serles"],
     install_requires=[
         "flask",
@@ -49,6 +49,7 @@ setup(
     },
     classifiers=[
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
-        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.12",
     ],
 )
