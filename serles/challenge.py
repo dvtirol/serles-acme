@@ -4,6 +4,7 @@ import socket
 import hashlib
 import base64
 import requests
+import ipaddress
 import jwcrypto.jwk  # fedora package: python3-jwcrypto.noarch
 import jwcrypto.jws
 import dns.resolver
@@ -95,10 +96,18 @@ def http_challenge(challenge):  # RFC8555 §8.3
         description, or (None,None).
     """
     host = challenge.authorization.identifier.value
+    ident_type = challenge.authorization.identifier.type
     token = challenge.token
     prefix = ".well-known/acme-challenge"
     session = requests.Session()
     session.trust_env = False  # bypass proxy
+
+    is_ipaddress = ident_type == IdentifierTypes.ip
+    if is_ipaddress:
+        # RFC 8738 §5: textual representation MUST be normalized
+        if not config["allowIpIdentifiers"]:
+            return "rejectedIdentifier", f"IP Address identifiers disallowed"
+        host = ipaddress.ip_address(host).compressed
 
     # follow redirect-to-https, but ignore self-signed certs:
     session.verify = False
@@ -121,7 +130,7 @@ def http_challenge(challenge):  # RFC8555 §8.3
         sock = socket.fromfd(r.raw.fileno(), socket.AF_INET, socket.SOCK_STREAM)
         remote_ip, *_ = sock.getpeername()
 
-    reject = additional_ip_address_checks(remote_ip, host)
+    reject = additional_ip_address_checks(remote_ip, host, is_ipaddress)
     if reject:
         return "rejectedIdentifier", reject
 
@@ -191,7 +200,15 @@ def alpn_challenge(challenge):  # RFC 8737 §3
     """
     ALPN_PROTOCOL = "acme-tls/1"
 
-    host = challenge.authorization.identifier.value
+    host = check_host = challenge.authorization.identifier.value
+    ident_type = challenge.authorization.identifier.type
+
+    is_ipaddress = ident_type == IdentifierTypes.ip
+    if is_ipaddress:
+        # RFC 8738 §6: MUST use IN-ADDR.ARPA or IP6.ARPA reverse mapping
+        if not config["allowIpIdentifiers"]:
+            return "rejectedIdentifier", f"IP Address identifiers disallowed"
+        check_host = ipaddress.ip_address(host).reverse_pointer
 
     context = ssl.SSLContext()  # server may return self-signed cert here
     context.set_alpn_protocols([ALPN_PROTOCOL])
@@ -201,7 +218,7 @@ def alpn_challenge(challenge):  # RFC 8737 §3
         ) as ssock:
             remote_ip, *_ = ssock.getpeername()
 
-            reject = additional_ip_address_checks(remote_ip, host)
+            reject = additional_ip_address_checks(remote_ip, host, is_ipaddress)
             if reject:
                 return "rejectedIdentifier", reject
 
@@ -221,9 +238,9 @@ def alpn_challenge(challenge):  # RFC 8737 §3
         san = cert.extensions.get_extension_for_oid(
             x509.oid.ExtensionOID.SUBJECT_ALTERNATIVE_NAME
         ).value
-        if len(san) != 1 or san[0].value != host:
+        if len(san) != 1 or san[0].value != check_host:
             san_list = [e.value for e in san]
-            return "rejectedIdentifier", f"san is {san_list!r}, expected {[host]!r}"
+            return "rejectedIdentifier", f"san is {san_list!r}, expected {[check_host]!r}"
 
         acmeIdentifier = x509.ObjectIdentifier("1.3.6.1.5.5.7.1.31")  # RFC 8737 §6.1
         authorization = ber_parse(
@@ -315,7 +332,7 @@ def key_authorization(challenge):
     return f"{token}.{thumbprint}"
 
 
-def additional_ip_address_checks(remote_ip, host):
+def additional_ip_address_checks(remote_ip, host, is_ipaddress=False):
     """ perform additional checks on the remote IP address
 
     These are useful in an enterprise setting, but not required by spec.
@@ -324,10 +341,14 @@ def additional_ip_address_checks(remote_ip, host):
         remote_ip (str): the IP address which we connected to for challenge
             verification
         host (str): dNSname which we resolved to get `remote_ip`
+        is_ipaddress (bool): whether `host` is an IP address (skips verifyPTR)
 
     Returns:
         Optional[str]: An error, if one occured, or None.
     """
+    if is_ipaddress:
+        remote_ip = host
+
     if config["allowedServerIpRanges"] and not ip_in_ranges(
         remote_ip, config["allowedServerIpRanges"]
     ):
@@ -336,5 +357,6 @@ def additional_ip_address_checks(remote_ip, host):
         remote_ip, config["excludeServerIpRanges"]
     ):
         return "rejectedIdentifier", f"{remote_ip} in excluded range"
-    if config["verifyPTR"] and normalize(get_ptr(remote_ip)) != normalize(host):
-        return "rejectedIdentifier", f"PTR does not match"
+    if not is_ipaddress:
+        if config["verifyPTR"] and normalize(get_ptr(remote_ip)) != normalize(host):
+            return "rejectedIdentifier", f"PTR does not match"

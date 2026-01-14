@@ -121,3 +121,29 @@ class ConfigFunctionTester(unittest.TestCase):
                 main.configloader.load_config_and_backend,
                 f.name,
             )
+        with tempfile.NamedTemporaryFile() as f:
+            f.write(b"[serles]\n")
+            f.write(b"database=sqlite:///:memory:\n")
+            f.write(b"backend=MockBackend\n")
+            f.write(b"subjectNameTemplate=x\n")
+            f.write(b"allowWildcards=x\n")
+            f.flush()
+            self.assertRaisesRegex(
+                ConfigError,
+                "allowWildcards",
+                main.configloader.load_config_and_backend,
+                f.name,
+            )
+        with tempfile.NamedTemporaryFile() as f:
+            f.write(b"[serles]\n")
+            f.write(b"database=sqlite:///:memory:\n")
+            f.write(b"backend=MockBackend\n")
+            f.write(b"subjectNameTemplate=x\n")
+            f.write(b"allowIpIdentifiers=x\n")
+            f.flush()
+            self.assertRaisesRegex(
+                ConfigError,
+                "allowIpIdentifiers",
+                main.configloader.load_config_and_backend,
+                f.name,
+            )
