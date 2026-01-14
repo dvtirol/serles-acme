@@ -10,6 +10,7 @@ import pytest
 from copy import deepcopy
 
 import serles.challenge as main
+from serles.models import IdentifierTypes
 import MockBackend
 import dns.resolver
 
@@ -164,6 +165,7 @@ def MockedDNSResolveTXT(qname, rdtype, search=False):
 mock_authz = Mock(status=main.AuthzStatus.valid)
 mock_challenge = Mock()
 mock_challenge.authorization.identifier.value = "example.test"
+mock_challenge.authorization.identifier.type = IdentifierTypes.dns
 mock_challenge.type = main.ChallengeTypes.http_01
 mock_challenge.token = "token"
 mock_challenge.authorization.expires = datetime.datetime.now(
@@ -446,12 +448,14 @@ class ChallengeFunctionTester(unittest.TestCase):
             dns.resolver, "resolve", mockedDNSResolve
         ):
             mock_challenge.authorization.identifier.value = "example.invalid"
+            mock_challenge.authorization.identifier.type = IdentifierTypes.dns
             result = main.http_challenge(mock_challenge)
             self.assertEqual(result[0], "rejectedIdentifier")
 
     # DNS challenge unit testing
     def test_dns_challenge_ok(self):
         mock_dns_challenge.authorization.identifier.value = "example.test"
+        mock_dns_challenge.authorization.identifier.type = IdentifierTypes.dns
         with unittest.mock.patch.object(
             dns.resolver, "query", MockedDNSResolveTXT
         ), unittest.mock.patch.object(
@@ -462,6 +466,7 @@ class ChallengeFunctionTester(unittest.TestCase):
 
     def test_dns_challenge_wildcardforbidden(self):
         mock_wildcard_challenge.authorization.identifier.value = "*.example.test"
+        mock_wildcard_challenge.authorization.identifier.type = IdentifierTypes.dns
         with unittest.mock.patch.object(
             dns.resolver, "query", MockedDNSResolveTXT
         ), unittest.mock.patch.object(
@@ -472,6 +477,7 @@ class ChallengeFunctionTester(unittest.TestCase):
 
     def test_dns_challenge_wildcardallowed(self):
         mock_wildcard_challenge.authorization.identifier.value = "*.example.test"
+        mock_wildcard_challenge.authorization.identifier.type = IdentifierTypes.dns
         with unittest.mock.patch.object(
             dns.resolver, "query", MockedDNSResolveTXT
         ), unittest.mock.patch.object(
@@ -484,6 +490,7 @@ class ChallengeFunctionTester(unittest.TestCase):
 
     def test_dns_challenge_multiple_txt_ok(self):
         mock_dns_challenge.authorization.identifier.value = "multiple.example.test"
+        mock_dns_challenge.authorization.identifier.type = IdentifierTypes.dns
         with unittest.mock.patch.object(
             dns.resolver, "query", MockedDNSResolveTXT
         ), unittest.mock.patch.object(
@@ -494,6 +501,7 @@ class ChallengeFunctionTester(unittest.TestCase):
 
     def test_dns_challenge_txt_empty(self):
         mock_dns_challenge.authorization.identifier.value = "empty.example.test"
+        mock_dns_challenge.authorization.identifier.type = IdentifierTypes.dns
         with unittest.mock.patch.object(
             dns.resolver, "query", MockedDNSResolveTXT
         ), unittest.mock.patch.object(
@@ -504,6 +512,7 @@ class ChallengeFunctionTester(unittest.TestCase):
 
     def test_dns_challenge_bad_txt(self):
         mock_dns_challenge.authorization.identifier.value = "bad.example.test"
+        mock_dns_challenge.authorization.identifier.type = IdentifierTypes.dns
         with unittest.mock.patch.object(
             dns.resolver, "query", MockedDNSResolveTXT
         ), unittest.mock.patch.object(
@@ -576,6 +585,7 @@ class ChallengeFunctionTester(unittest.TestCase):
         ), unittest.mock.patch.object(main.ssl, "SSLContext", MockedSSLContext):
             mock_challenge2 = deepcopy(mock_alpn_challenge)
             mock_challenge2.authorization.identifier.value = "example.invalid"
+            mock_challenge2.authorization.identifier.type = IdentifierTypes.dns
             result = main.alpn_challenge(mock_challenge2)
             self.assertEqual(
                 result,
@@ -677,8 +687,10 @@ class ChallengeFunctionTester(unittest.TestCase):
         mock_order.account.contact = None
         example_inval = Mock()
         example_inval.value = "example.inval"
+        example_inval.type = IdentifierTypes.dns
         example_test = Mock()
         example_test.value = "example.test"
+        example_test.type = IdentifierTypes.dns
 
         # additional identifiers in CSR:
         mock_order.identifiers = []
@@ -727,8 +739,10 @@ class ChallengeFunctionTester(unittest.TestCase):
         mock_order.account.contact = None
         example_inval = Mock()
         example_inval.value = "example.inval"
+        example_inval.type = IdentifierTypes.dns
         example_test = Mock()
         example_test.value = "example.test"
+        example_test.type = IdentifierTypes.dns
 
         # additional identifiers in CSR:
         mock_order.identifiers = []
