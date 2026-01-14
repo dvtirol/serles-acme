@@ -106,8 +106,11 @@ def http_challenge(challenge):  # RFC8555 §8.3
     if is_ipaddress:
         # RFC 8738 §5: textual representation MUST be normalized
         if not config["allowIpIdentifiers"]:
-            return "rejectedIdentifier", f"IP Address identifiers disallowed"
-        host = ipaddress.ip_address(host).compressed
+            return "rejectedIdentifier", "IP Address identifiers disallowed"
+        try:
+            host = ipaddress.ip_address(host).compressed
+        except ValueError:
+            return "malformed", f"{host} does not look like a valid IP address"
 
     # follow redirect-to-https, but ignore self-signed certs:
     session.verify = False
@@ -208,7 +211,10 @@ def alpn_challenge(challenge):  # RFC 8737 §3
         # RFC 8738 §6: MUST use IN-ADDR.ARPA or IP6.ARPA reverse mapping
         if not config["allowIpIdentifiers"]:
             return "rejectedIdentifier", f"IP Address identifiers disallowed"
-        check_host = ipaddress.ip_address(host).reverse_pointer
+        try:
+            check_host = ipaddress.ip_address(host).reverse_pointer
+        except ValueError:
+            return "malformed", f"{host} does not look like a valid IP address"
 
     context = ssl.SSLContext()  # server may return self-signed cert here
     context.set_alpn_protocols([ALPN_PROTOCOL])
@@ -275,27 +281,42 @@ def check_csr_and_return_cert(csr_der, order):
     """
     csr = x509.load_der_x509_csr(csr_der, x509_backend())
     try:
-        alt_names = csr.extensions.get_extension_for_oid(
+        san = csr.extensions.get_extension_for_oid(
             x509.oid.ExtensionOID.SUBJECT_ALTERNATIVE_NAME
-        ).value.get_values_for_type(x509.DNSName)
-    except:
+        ).value
+        san_dns = san.get_values_for_type(x509.DNSName)
+        san_ips = san.get_values_for_type(x509.IPAddress)
+        alt_names = san_dns + san_ips
+    except x509.extensions.ExtensionNotFound as e:
+        san_dns = []
+        san_ips = []
         alt_names = []
+
     try:
         common_name = csr.subject.get_attributes_for_oid(x509.oid.NameOID.COMMON_NAME)[
             0
         ].value
     except IndexError:
-        # certbot does not set Subject Name, only SANs
-        # https://github.com/certbot/certbot/issues/4922
+        if not alt_names:
+            raise ACMEError("no identifiers in CSR", 400, "badCSR")
         common_name = alt_names[0]
 
     if not common_name in alt_names:  # chrome ignores CN, so write CN to SAN
         alt_names.insert(0, common_name)
+        try:
+            ip = ipaddress.ip_address(common_name)
+            san_ips.insert(0, ip)
+        except ValueError:
+            san_dns.insert(0, common_name)
 
     # since we pass the CN and SANs to the backend, make sure the client only
-    # specified those that we verified before:
-    order_identifiers = {ident.value for ident in order.identifiers}
-    csr_identifiers = {*alt_names}  # convert list to set
+    # specified those that we verified before (and that types match):
+    order_identifiers = {(unstringify_ip(ident), ident.type) for ident in order.identifiers}
+    csr_identifiers = {
+        *((ident, IdentifierTypes.dns) for ident in san_dns),
+        *((ident, IdentifierTypes.ip) for ident in san_ips),
+    }
+
     if order_identifiers != csr_identifiers:
         raise ACMEError(f"{order_identifiers} != {csr_identifiers}", 400, "badCSR")
 
@@ -360,3 +381,21 @@ def additional_ip_address_checks(remote_ip, host, is_ipaddress=False):
     if not is_ipaddress:
         if config["verifyPTR"] and normalize(get_ptr(remote_ip)) != normalize(host):
             return "rejectedIdentifier", f"PTR does not match"
+
+def unstringify_ip(ident):
+    """ convert IP address identifiers to `ipaddress` objects
+
+    cryptography.x509.SubjectAlternativeName.get_values_for_type returns IP
+    addresses as IPv4Address/IPv6Address objects, not strings. This allows us
+    to compare Order identifiers to them.
+
+    Args:
+        ident (Identifier): the identifier to convert based on its type
+
+    Returns:
+        str | IPv4Address | IPv6Address: converted value
+    """
+
+    if ident.type == IdentifierTypes.ip:
+        return ipaddress.ip_address(ident.value)
+    return ident.value
