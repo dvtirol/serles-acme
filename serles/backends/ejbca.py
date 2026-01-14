@@ -1,5 +1,6 @@
 import base64
 import csv
+import ipaddress
 import requests
 import secrets
 import zeep  # fedora package: python3-zeep.noarch
@@ -73,7 +74,7 @@ class EjbcaBackend:
         self.userData = self.client.get_type("ns0:userDataVOWS")
 
     def sign(self, csr, subjectDN, subjectAltNames, email):
-        subjectAltName = ",".join(f"DNSNAME={name}" for name in subjectAltNames)
+        subjectAltName = ",".join(typed_ident(name) for name in subjectAltNames)
 
         csr_obj = x509.load_pem_x509_csr(csr, x509_backend())
         csr_der = csr_obj.public_bytes(serialization.Encoding.DER)
@@ -122,6 +123,15 @@ class EjbcaBackend:
             if message.startswith("org."):
                 typestr, _, message = message.partition(":")
             return None, message
+
+
+def typed_ident(ident):
+    try:
+        ip = ipaddress.ip_address(ident)
+        return f"IPAddress={ip.compressed}"
+    except ValueError:
+        # assume dNSname
+        return f"DNSNAME={ident}"
 
 
 def pkcs7_to_pem_chain(pkcs7_input):

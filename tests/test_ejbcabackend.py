@@ -91,3 +91,11 @@ class HelperFunctionTester(unittest.TestCase):
         pem_output = open("data_pemchain.txt", "r").read()
         result = EJBCABackend.pkcs7_to_pem_chain(der_input)
         self.assertEqual(result.replace("\n", ""), pem_output.replace("\n", ""))
+
+    def test_typed_ident(self):
+        self.assertEqual(EJBCABackend.typed_ident("192.0.2.1"), "IPAddress=192.0.2.1")
+        self.assertEqual(EJBCABackend.typed_ident("2001:DB8::1"), "IPAddress=2001:db8::1")
+        self.assertEqual(EJBCABackend.typed_ident("2001:DB8::0:01"), "IPAddress=2001:db8::1")
+        self.assertEqual(EJBCABackend.typed_ident("example.test"), "DNSNAME=example.test")
+        # subnet is not an address, fall back to DNSNAME:
+        self.assertEqual(EJBCABackend.typed_ident("192.0.2.0/24"), "DNSNAME=192.0.2.0/24")
