@@ -546,7 +546,7 @@ class ChallengeFunctionTester(unittest.TestCase):
         ), unittest.mock.patch.object(
             main.ssl, "SSLContext", MockedSSLContext
         ), unittest.mock.patch.object(
-            main, "additional_ip_address_checks", lambda _, __: "rejectMsg"
+            main, "additional_ip_address_checks", lambda *_: "rejectMsg"
         ):
             result = main.alpn_challenge(mock_alpn_challenge)
             self.assertEqual(result, ("rejectedIdentifier", "rejectMsg"))

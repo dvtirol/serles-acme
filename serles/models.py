@@ -91,6 +91,7 @@ class Order(db.Model):  # RFC8555 §7.1.3
 
 class IdentifierTypes(Enum):
     dns = "dns"
+    ip = "ip"
 
 
 class Identifier(db.Model):

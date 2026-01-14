@@ -128,4 +128,9 @@ def load_config_and_backend(filename):
     except ValueError:
         raise ConfigError("[serles]allowWildcards= must be 'true' or 'false'") from None
 
+    try:
+        config["allowIpIdentifiers"] = cparser["serles"].getboolean("allowIpIdentifiers", fallback=False)
+    except ValueError:
+        raise ConfigError("[serles]allowIpIdentifiers= must be 'true' or 'false'") from None
+
     return config, backend
