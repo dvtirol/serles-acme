@@ -778,3 +778,36 @@ class ChallengeFunctionTester(unittest.TestCase):
                 csr_input,
                 mock_order,
             )
+
+    def test_check_csr_and_return_cert_ipcn(self):
+        csr_input = open("data_csr_ipcn.der", "rb").read()
+        mock_order = Mock()
+        mock_order.account.contact = None
+        example_ip = Mock()
+        example_ip.value = "2001:DB8::1"
+        example_ip.type = IdentifierTypes.ip
+        mock_order.identifiers = [example_ip]
+
+        result = main.check_csr_and_return_cert(csr_input, mock_order)
+        good = open("data_pkcs7.bin", "rb").read()
+        self.assertEqual(result, good)
+
+    def test_check_csr_and_return_cert_nocnorsan(self):
+        csr_input = open("data_csr_empty.der", "rb").read()
+        mock_order = Mock()
+        mock_order.account.contact = None
+        example_inval = Mock()
+        example_inval.value = "example.inval"
+        example_inval.type = IdentifierTypes.dns
+        example_test = Mock()
+        example_test.value = "example.test"
+        example_test.type = IdentifierTypes.dns
+
+        mock_order.identifiers = []
+        self.assertRaisesRegex(
+            main.ACMEError,
+            r"no identifiers in CSR",
+            main.check_csr_and_return_cert,
+            csr_input,
+            mock_order,
+        )
