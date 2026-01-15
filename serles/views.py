@@ -121,20 +121,26 @@ class NewOrder(Resource):
                 raise ACMEError("identifier not valid", 400, "malformed")
             type_ = identifier.get("type")
             value = identifier.get("value")
-            if type_ != "dns":
+            if type_ not in (e.value for e in IdentifierTypes):
                 raise ACMEError(
-                    "can only do 'dns' type identifiers", 400, "rejectedIdentifier"
+                    f"unsupported identifier type {type_}", 400, "rejectedIdentifier"
                 )
 
             # check if a wildcard identifier was requested (§7.1.3).
             wildcard = value.startswith("*.") and type_ == "dns"
             basename = value.removeprefix("*.") if wildcard else value
 
+            # check if the identifier is an IPv4 or IPv6 address (RFC 8738 §3).
+            is_ipaddress = type_ == "ip"
+
             identifier = Identifier(type=IdentifierTypes(type_), value=value)
             db.session.add(identifier)
             challenges = [
                 Challenge(type=ChallengeTypes.dns_01),
             ] if wildcard else [
+                Challenge(type=ChallengeTypes.http_01),
+                Challenge(type=ChallengeTypes.tls_alpn_01),
+            ] if is_ipaddress else [
                 Challenge(type=ChallengeTypes.http_01),
                 Challenge(type=ChallengeTypes.dns_01),
                 Challenge(type=ChallengeTypes.tls_alpn_01),
