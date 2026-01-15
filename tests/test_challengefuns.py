@@ -116,6 +116,11 @@ class MockedSSLContextBadCert(MockedSSLContext):
         return open("data_alpn_cert_bad.der", "rb").read()
 
 
+class MockedSSLContextIPCert(MockedSSLContext):
+    def getpeercert(self, binary_form):
+        return open("data_alpn_cert_ip.der", "rb").read()
+
+
 def mockedDNSResolve(qname, rdtype, search=False):
     rsp = {"1.0.0.10.in-addr.arpa.": "localhost."}.get(str(qname))
     if not rsp:
@@ -175,6 +180,13 @@ nB7cAzUtoA06AJ1DZTP74LcOaMj/rQhs5qLelTb6HwLR3At5ilHkP3K+XddUK/y2
 BwIDAQAB
 -----END PUBLIC KEY-----"""
 
+mock_challenge_ip = deepcopy(mock_challenge)
+mock_challenge_ip.authorization.identifier.value = "192.0.2.1"
+mock_challenge_ip.authorization.identifier.type = IdentifierTypes.ip
+
+mock_challenge_brokenip = deepcopy(mock_challenge_ip)
+mock_challenge_brokenip.authorization.identifier.value = "not-an-ip-address"
+
 mock_dns_challenge = deepcopy(mock_challenge)
 mock_dns_challenge.type = main.ChallengeTypes.dns_01
 mock_dns_challenge.authorization.wildcard = None
@@ -222,6 +234,13 @@ q8XJ6esqCry0Zdzvn1ydnu1Io7R4OS6CIROjLx7EF6RfLt96lkZjrEzuIOryphM9
 DfhRQn/W5DAdM5PWQcCIrZn1Z4fKFZdl3Cm/PrRiRTmfAgMBAAE=
 -----END PUBLIC KEY-----"""
 
+mock_alpn_challenge_ip = deepcopy(mock_alpn_challenge)
+mock_alpn_challenge_ip.authorization.identifier.value = "192.0.2.1"
+mock_alpn_challenge_ip.authorization.identifier.type = IdentifierTypes.ip
+
+mock_alpn_challenge_brokenip = deepcopy(mock_alpn_challenge_ip)
+mock_alpn_challenge_brokenip.authorization.identifier.value = "not-an-ip-address"
+
 orig_db = main.db
 
 
@@ -235,6 +254,7 @@ class ChallengeFunctionTester(unittest.TestCase):
             "forceTemplateDN": True,
             "subjectNameTemplate": "{SAN[0]}",
             "allowWildcards": False,
+            "allowIpIdentifiers": False,
         }
         main.db = Mock()  # don't commit into the nonexisting database
         os.chdir(os.path.dirname(__file__))
@@ -315,6 +335,42 @@ class ChallengeFunctionTester(unittest.TestCase):
         ):
             result = main.http_challenge(mock_challenge)
             self.assertEqual(result, (None, None))
+
+    def test_http_challenge_disallowedip(self):
+        with unittest.mock.patch.object(
+            main.requests, "Session", MockedRequestsSession
+        ):
+            result = main.http_challenge(mock_challenge_ip)
+            self.assertEqual(result[0], "rejectedIdentifier")
+
+    def test_http_challenge_brokenip(self):
+        with unittest.mock.patch.object(
+            main.requests, "Session", MockedRequestsSession
+        ), unittest.mock.patch.dict(
+            main.config, {"allowIpIdentifiers": True}
+        ):
+            result = main.http_challenge(mock_challenge_brokenip)
+            self.assertEqual(result[0], "malformed")
+
+    def test_http_challenge_allowedip(self):
+        with unittest.mock.patch.object(
+            main.requests, "Session", MockedRequestsSession
+        ), unittest.mock.patch.dict(
+            main.config, {"allowIpIdentifiers": True}
+        ):
+            result = main.http_challenge(mock_challenge_ip)
+            self.assertEqual(result, (None, None))
+
+    def test_http_challenge_allowedip_excludedrange(self):
+        with unittest.mock.patch.object(
+            main.requests, "Session", MockedRequestsSession
+        ), unittest.mock.patch.dict(
+            main.config, {"allowIpIdentifiers": True}
+        ), unittest.mock.patch.dict(
+            main.config, {"allowedServerIpRanges": [ipaddress.ip_network("::1/128")]}
+        ):
+            result = main.http_challenge(mock_challenge_ip)
+            self.assertEqual(result[0], "rejectedIdentifier")
 
     def test_http_challenge_connection(self):
         with unittest.mock.patch.object(
@@ -585,6 +641,35 @@ class ChallengeFunctionTester(unittest.TestCase):
         ), unittest.mock.patch.object(main.ssl, "SSLContext", MockedSSLContext):
             result = main.alpn_challenge(mock_alpn_challenge)
             self.assertEqual(result, ("connection", "oops"))
+
+    def test_alpn_challenge_disallowedip(self):
+        with unittest.mock.patch.object(
+            main.socket, "create_connection", MockedSocket
+        ), unittest.mock.patch.object(main.ssl, "SSLContext", MockedSSLContextIPCert):
+            result = main.alpn_challenge(mock_alpn_challenge_ip)
+            self.assertEqual(result[0], "rejectedIdentifier")
+
+    def test_alpn_challenge_allowedip(self):
+        with unittest.mock.patch.object(
+            main.socket, "create_connection", MockedSocket
+        ), unittest.mock.patch.object(
+            main.ssl, "SSLContext", MockedSSLContextIPCert
+        ), unittest.mock.patch.dict(
+            main.config, {"allowIpIdentifiers": True}
+        ):
+            result = main.alpn_challenge(mock_alpn_challenge_ip)
+            self.assertEqual(result, (None, None))
+
+    def test_alpn_challenge_brokenip(self):
+        with unittest.mock.patch.object(
+            main.socket, "create_connection", MockedSocket
+        ), unittest.mock.patch.object(
+            main.ssl, "SSLContext", MockedSSLContextIPCert
+        ), unittest.mock.patch.dict(
+            main.config, {"allowIpIdentifiers": True}
+        ):
+            result = main.alpn_challenge(mock_alpn_challenge_brokenip)
+            self.assertEqual(result[0], "malformed")
 
     def test_check_csr_and_return_cert(self):
         csr_input = open("data_example.test.csr.bin", "rb").read()
