@@ -5,6 +5,7 @@ import requests
 import secrets
 import zeep  # fedora package: python3-zeep.noarch
 from cryptography import x509  # python3-cryptography.x86_64
+from cryptography.x509.oid import PublicKeyAlgorithmOID as PKOID
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.serialization import pkcs7
 from cryptography.hazmat.backends import default_backend as x509_backend
@@ -57,13 +58,23 @@ class EjbcaBackend:
             apiUrl = config["ejbca"]["apiUrl"]
             caBundle = config["ejbca"]["caBundle"]
             caBundle = dict(default=True, none=False).get(caBundle, caBundle)
-            self.caName = config["ejbca"]["caName"]
             self.endEntityProfileName = config["ejbca"]["endEntityProfileName"]
             self.certificateProfileName = config["ejbca"]["certificateProfileName"]
             self.entityUsernameScheme = config["ejbca"]["entityUsernameScheme"]
             self.entityPasswordScheme = config["ejbca"]["entityPasswordScheme"]
         except KeyError as e:
             raise Exception(f"missing config key {e}")
+
+        # 'caName' (if present) is the default, unless overridden by _rsa and/or _ecdsa:
+        fallbackCA = config["ejbca"].get("caName")
+        self.caName = {
+            # allowed list of public key algorithms. there are more but the
+            # CA/B Baseline Requirements §7.1.3.1 only allow these two OIDs:
+            PKOID.RSAES_PKCS1_v1_5: config["ejbca"].get("caName_rsa", fallbackCA),
+            PKOID.EC_PUBLIC_KEY: config["ejbca"].get("caName_ecdsa", fallbackCA),
+        }
+        if not any(self.caName.values()):
+            raise Exception(f"missing config key caName, caName_rsa or caName_ecdsa")
 
         session = requests.Session()
         session.verify = caBundle
@@ -78,6 +89,13 @@ class EjbcaBackend:
 
         csr_obj = x509.load_pem_x509_csr(csr, x509_backend())
         csr_der = csr_obj.public_bytes(serialization.Encoding.DER)
+
+        # find out which kind of public key the CSR is using, and select the
+        # authority to sign the certificate with accordingly.
+        csr_algo = csr_obj.public_key_algorithm_oid
+        caName = self.caName.get(csr_algo)
+        if not caName:
+            return None, f"unsupported key algorithm {csr_algo.dotted_string}"
 
         # NOTE: this is very hacky and not to spec/rfc4514, but should be
         # enough to extract the CN. Notably, we don't support "+" and "\<hex>".
@@ -98,7 +116,7 @@ class EjbcaBackend:
                     password=password,
                     clearPwd=False,
                     subjectDN=subjectDN,
-                    caName=self.caName,
+                    caName=caName,
                     subjectAltName=subjectAltName,
                     email=email,
                     status=10,  # EndEntityConstants.STATUS_NEW = 10
