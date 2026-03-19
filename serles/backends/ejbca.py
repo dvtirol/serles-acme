@@ -57,13 +57,21 @@ class EjbcaBackend:
             apiUrl = config["ejbca"]["apiUrl"]
             caBundle = config["ejbca"]["caBundle"]
             caBundle = dict(default=True, none=False).get(caBundle, caBundle)
-            self.caName = config["ejbca"]["caName"]
             self.endEntityProfileName = config["ejbca"]["endEntityProfileName"]
             self.certificateProfileName = config["ejbca"]["certificateProfileName"]
             self.entityUsernameScheme = config["ejbca"]["entityUsernameScheme"]
             self.entityPasswordScheme = config["ejbca"]["entityPasswordScheme"]
         except KeyError as e:
             raise Exception(f"missing config key {e}")
+
+        # 'caName' (if present) is the default, unless overridden by _rsa and/or _ecdsa:
+        fallbackCA = config["ejbca"].get("caName")
+        self.caName = {
+            "rsa": config["ejbca"].get("caName_rsa", fallbackCA),
+            "ecdsa": config["ejbca"].get("caName_ecdsa", fallbackCA),
+        }
+        if not any(self.caName.values()):
+            raise Exception(f"missing config key caName, caName_rsa or caName_ecdsa")
 
         session = requests.Session()
         session.verify = caBundle
@@ -78,6 +86,18 @@ class EjbcaBackend:
 
         csr_obj = x509.load_pem_x509_csr(csr, x509_backend())
         csr_der = csr_obj.public_bytes(serialization.Encoding.DER)
+
+        # find out which kind of public key the CSR is using, and select the
+        # authority to sign the certificate with accordingly. there are more but
+        # the CA/B Baseline Requirements §7.1.3.1 only allow these two OIDs.
+        csr_algo = csr_obj.public_key_algorithm_oid.dotted_string
+        ca_algo = {
+            "1.2.840.113549.1.1.1": "rsa", # rsaEncryption as per RFC3279§2.3.1 & RFC4055§1.2
+            "1.2.840.10045.2.1": "ecdsa", # ecPublicKey as per RFC3279§2.3.5 & RFC5480§2.1.1
+        }.get(csr_algo)
+        if not ca_algo:
+            return None, f"unsupported key algorithm {csr_algo}"
+        caName = self.caName[ca_algo]
 
         # NOTE: this is very hacky and not to spec/rfc4514, but should be
         # enough to extract the CN. Notably, we don't support "+" and "\<hex>".
@@ -98,7 +118,7 @@ class EjbcaBackend:
                     password=password,
                     clearPwd=False,
                     subjectDN=subjectDN,
-                    caName=self.caName,
+                    caName=caName,
                     subjectAltName=subjectAltName,
                     email=email,
                     status=10,  # EndEntityConstants.STATUS_NEW = 10
