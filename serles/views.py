@@ -5,7 +5,19 @@ from flask import g, make_response
 from flask_restful import Resource, Api
 
 from .utils import base64d
-from .models import *
+from .models import (
+    db,
+    Account,
+    Authorization,
+    Certificate,
+    Challenge,
+    ChallengeStatus,
+    ChallengeTypes,
+    Identifier,
+    IdentifierTypes,
+    Order,
+    OrderStatus,
+)
 from .challenge import (
     init_config as c_init_config,
     verify_challenge,

@@ -17,7 +17,7 @@ from cryptography.hazmat.primitives import serialization
 
 from .utils import get_ptr, ip_in_ranges, normalize, ber_parse
 from .configloader import get_config
-from .models import *
+from .models import db, AuthzStatus, ChallengeStatus, ChallengeTypes, IdentifierTypes, OrderStatus
 from .exceptions import ACMEError
 
 config = {}

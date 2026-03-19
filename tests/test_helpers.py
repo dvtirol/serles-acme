@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import Mock
 import os, sys
 import serles.utils as main
-from serles import UTCDateTime
+from serles.models import UTCDateTime
 
 import dns.resolver
 

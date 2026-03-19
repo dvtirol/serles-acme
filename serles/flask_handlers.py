@@ -6,8 +6,8 @@ from flask import g, request, jsonify, make_response, current_app
 from werkzeug.exceptions import HTTPException
 
 from .utils import base64d
-from .views import *  # Note: import views before models!
-from .models import *
+from .views import api, Directory  # Note: import views before models!
+from .models import Nonces, Account
 from .exceptions import ACMEError
 
 

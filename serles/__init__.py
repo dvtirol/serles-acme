@@ -3,8 +3,8 @@ from flask import Flask
 
 from .utils import background_job, base64d, query, get_ptr, ip_in_ranges, normalize
 from .configloader import get_config
-from .views import *  # Note: import views before models!
-from .models import *
+from .views import api, init_config  # Note: import views before models!
+from .models import db, Nonces, Order
 from .exceptions import ACMEError
 from .flask_handlers import parse_jws, inject_nonce, index_header, exception_handler
 
@@ -21,7 +21,7 @@ def create_app():
     app.config["SQLALCHEMY_DATABASE_URI"] = config["database"]
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-    init_config()  # views.init_config()
+    init_config()
     api.init_app(app)
     db.init_app(app)
     with app.app_context():
