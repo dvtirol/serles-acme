@@ -61,11 +61,20 @@ caBundle = none
 # format:
 clientCertificate = /etc/serles/client01-privpub.pem
 
-# name of the Certificate Authority, End Entity Profile and Certificate Profile
-# for to-be-generated certs:
-caName = ACMECA
+# name of the End Entity Profile and Certificate Profile for to-be-generated
+# certs:
 endEntityProfileName = ACMEEndEntityProfile
 certificateProfileName = ACMEServerProfile
+
+# EJBCA requires us to specify which Certificate Authority is used to sign the
+# requested certificate. You can simply define "caName" to use for all certs:
+caName = ACMECA
+# If you want to select the CA based on the public key algorithm found in the
+# CSR, you can use the override keys below; "caName", if present, will then be
+# used as a fallback. If "caName" is not defined, key algorithms not specified
+# through the override keys are disallowed.
+#caName_rsa = ACMECA-RSA
+#caName_ecdsa = ACMECA-ECC
 
 # Username and Enrollment Code for the End Entity. available parameters are
 # {random} (32 chars of [0-9a-f]) and those from the certificate's DN.
