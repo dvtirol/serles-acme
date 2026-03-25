@@ -13,7 +13,7 @@ class MockedClient:
     def get_type(self, name):
         class zeep_type:
             def __init__(self, **kwargs):
-                pass
+                self.attrs = kwargs
 
         return zeep_type
 
@@ -25,6 +25,12 @@ class MockedClient:
             pkcs7_out = open("data_pkcs7.bin", "rb").read()
             return Mock(data=base64.b64encode(pkcs7_out))
 
+    service = _service()
+
+class KeyTypeClient(MockedClient):
+    class _service:
+        def certificateRequest(self, userdata, csr, csrtype, none, certtype):
+            raise zeep.exceptions.Fault(userdata.attrs["caName"])
     service = _service()
 
 
@@ -50,6 +56,11 @@ class HelperFunctionTester(unittest.TestCase):
         config = dict(backend=dict())
         self.assertRaisesRegex(
             Exception, "missing config key", EJBCABackend.EjbcaBackend, config
+        )
+        config_noca = {"ejbca": good_config["ejbca"].copy()}
+        del config_noca["ejbca"]["caName"]
+        self.assertRaisesRegex(
+            Exception, "missing config key caName, caName_rsa or caName_ecdsa", EJBCABackend.EjbcaBackend, config_noca
         )
 
     def test_dnerror(self):
@@ -85,6 +96,58 @@ class HelperFunctionTester(unittest.TestCase):
             csr_input = open("data_nocn.csr.pem", "rb").read()
             retval = backend.sign(csr_input, "dn", "san", "email")
             self.assertEqual(retval, (None, "bar"))
+
+    def test_badkeyalgo(self):
+        # only RSA and ECDSA keys are allowed, so this check with a DSA CSR will fail.
+        with unittest.mock.patch.object(EJBCABackend.zeep, "Client", MockedClient):
+            backend = EJBCABackend.EjbcaBackend(good_config)
+            csr_input = open("data_dsa.csr.pem", "rb").read()
+            retval = backend.sign(csr_input, "dn", "san", "email")
+            self.assertEqual(retval, (None, "unsupported key algorithm 1.2.840.10040.4.1"))
+
+    def test_keyalgos(self):
+        config = dict(
+            ejbca=dict(
+                clientCertificate="",
+                apiUrl="https://example.test:8443/foo?",
+                caBundle="caBundle",
+                caName_rsa="rsa key detected",
+                caName_ecdsa="ecdsa key detected",
+                endEntityProfileName="endEntityProfileName",
+                certificateProfileName="certificateProfileName",
+                entityUsernameScheme="entityUsernameScheme",
+                entityPasswordScheme="entityPasswordScheme",
+            )
+        )
+        with unittest.mock.patch.object(EJBCABackend.zeep, "Client", KeyTypeClient):
+            backend = EJBCABackend.EjbcaBackend(config)
+            csr_input = open("data_example.test.csr.pem", "rb").read()
+            retval = backend.sign(csr_input, "dn", "san", "email")
+            self.assertEqual(retval, (None, "rsa key detected"))
+
+            csr_input = open("data_ecdsa.csr.pem", "rb").read()
+            retval = backend.sign(csr_input, "dn", "san", "email")
+            self.assertEqual(retval, (None, "ecdsa key detected"))
+
+    def test_disallowedalgo(self):
+        config = dict(
+            ejbca=dict(
+                clientCertificate="",
+                apiUrl="https://example.test:8443/foo?",
+                caBundle="caBundle",
+                caName_ecdsa="caName_ecdsa",
+                # no caName_rsa defined, an no caName fallback either
+                endEntityProfileName="endEntityProfileName",
+                certificateProfileName="certificateProfileName",
+                entityUsernameScheme="entityUsernameScheme",
+                entityPasswordScheme="entityPasswordScheme",
+            )
+        )
+        with unittest.mock.patch.object(EJBCABackend.zeep, "Client", KeyTypeClient):
+            backend = EJBCABackend.EjbcaBackend(config)
+            csr_input = open("data_example.test.csr.pem", "rb").read()
+            retval = backend.sign(csr_input, "dn", "san", "email")
+            self.assertEqual(retval, (None, "unsupported key algorithm 1.2.840.113549.1.1.1"))
 
     def test_pkcs7_to_pem_chain_crypto31(self):
         der_input = open("data_pkcs7.bin", "rb").read()
