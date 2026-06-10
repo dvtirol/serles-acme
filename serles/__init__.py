@@ -3,7 +3,8 @@ from flask import Flask
 
 from .utils import background_job, base64d, query, get_ptr, ip_in_ranges, normalize
 from .configloader import get_config
-from .views import api, init_config  # Note: import views before models!
+from .views import api # Note: import views before models and challenge!
+from .challenge import init_config
 from .models import db, Nonces, Order
 from .exceptions import ACMEError
 from .flask_handlers import parse_jws, inject_nonce, index_header, exception_handler
