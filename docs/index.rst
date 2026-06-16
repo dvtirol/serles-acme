@@ -215,3 +215,18 @@ behaviour.
 Note that when using the EJBCA backend, you should only allow a single
 connection at a time (i.e. single-threading), since there are concurrency
 problems in the EJBCA software.
+
+Community Resources
+-------------------
+
+Serles community has released some additional software you might find useful:
+
+- `acme.sh backend <https://github.com/DerHerscher/serles_acmesh_backend>`_
+
+- `A Docker wrapper <https://github.com/joepitt91/serles-acme-docker>`_
+
+- `Another Docker wrapper <https://github.com/rfranks-securenet/docker-serles>`_
+
+**NOTE**: the content of these repositories is not checked/approved/endorsed in any
+way by Serles project/developers/contributors/etc and/or DVT.
+*Use at your own risk*.
