@@ -11,11 +11,12 @@ example_inval = Identifier(value="example.inval", type=IdentifierTypes.dns)
 example_test = Identifier(value="example.test", type=IdentifierTypes.dns)
 example_ip = Identifier(value="2001:DB8::1", type=IdentifierTypes.ip)
 
-
-class ChallengeFunctionTester(unittest.TestCase):
-    def setUp(self):
-        main.backend = MockBackend.Backend([])
-        main.config = {
+def mock_config(sign_rv=None):
+    def get_config():
+        backend = MockBackend.Backend([])
+        if sign_rv:
+            backend.sign = lambda *_: sign_rv
+        return {
             "allowedServerIpRanges": None,
             "excludeServerIpRanges": None,
             "verifyPTR": False,
@@ -23,7 +24,12 @@ class ChallengeFunctionTester(unittest.TestCase):
             "subjectNameTemplate": "{SAN[0]}",
             "allowWildcards": False,
             "allowIpIdentifiers": False,
-        }
+        }, backend
+    return get_config
+
+
+class ChallengeFunctionTester(unittest.TestCase):
+    def setUp(self):
         os.chdir(os.path.dirname(__file__))
 
     def test_check_csr_and_return_cert(self):
@@ -31,38 +37,51 @@ class ChallengeFunctionTester(unittest.TestCase):
         mock_order = Mock()
         mock_order.account.contact = None
 
-        # additional identifiers in CSR:
-        mock_order.identifiers = []
-        self.assertRaisesRegex(
-            main.ACMEError,
-            r"set\(\)",
-            main.check_csr_and_return_cert,
-            csr_input,
-            mock_order,
-        )
-        # identifiers missing in CSR:
-        mock_order.identifiers = [example_inval, example_test]
-        self.assertRaisesRegex(
-            main.ACMEError,
-            "example.inval",
-            main.check_csr_and_return_cert,
-            csr_input,
-            mock_order,
-        )
+        with unittest.mock.patch.object(main, "get_config", mock_config()):
+            # additional identifiers in CSR:
+            mock_order.identifiers = []
+            self.assertRaisesRegex(
+                main.ACMEError,
+                r"set\(\)",
+                main.check_csr_and_return_cert,
+                csr_input,
+                mock_order,
+            )
+            # identifiers missing in CSR:
+            mock_order.identifiers = [example_inval, example_test]
+            self.assertRaisesRegex(
+                main.ACMEError,
+                "example.inval",
+                main.check_csr_and_return_cert,
+                csr_input,
+                mock_order,
+            )
+            mock_order.identifiers = [example_test]
+
+            result = main.check_csr_and_return_cert(csr_input, mock_order)
+            good = open("data_pkcs7.bin", "rb").read()
+            self.assertEqual(result, good)
+
+    def test_check_csr_and_return_cert_strconv(self):
+        csr_input = open("data_example.test.csr.bin", "rb").read()
+        mock_order = Mock()
+        mock_order.account.contact = None
         mock_order.identifiers = [example_test]
 
-        result = main.check_csr_and_return_cert(csr_input, mock_order)
-        good = open("data_pkcs7.bin", "rb").read()
-        self.assertEqual(result, good)
-
         with unittest.mock.patch.object(
-            main.backend, "sign", lambda *x: ("a string, not bytes", None)
+            main, "get_config", mock_config(("a string, not bytes", None))
         ):
             result = main.check_csr_and_return_cert(csr_input, mock_order)
-            self.assertEqual(result, b"a string, not bytes")  # utf-8-encoded bytes
+            self.assertEqual(result, b"a string, not bytes")  # utf-8-encoded
+
+    def test_check_csr_and_return_cert_error(self):
+        csr_input = open("data_example.test.csr.bin", "rb").read()
+        mock_order = Mock()
+        mock_order.account.contact = None
+        mock_order.identifiers = [example_test]
 
         with unittest.mock.patch.object(
-            main.backend, "sign", lambda *x: (None, "error")
+            main, "get_config", mock_config((None, "error"))
         ):
             self.assertRaisesRegex(
                 main.ACMEError,
@@ -100,17 +119,6 @@ class ChallengeFunctionTester(unittest.TestCase):
         result = main.check_csr_and_return_cert(csr_input, mock_order)
         good = open("data_pkcs7.bin", "rb").read()
         self.assertEqual(result, good)
-
-        with unittest.mock.patch.object(
-            main.backend, "sign", lambda *x: (None, "error")
-        ):
-            self.assertRaisesRegex(
-                main.ACMEError,
-                "error",
-                main.check_csr_and_return_cert,
-                csr_input,
-                mock_order,
-            )
 
     def test_check_csr_and_return_cert_ipcn(self):
         csr_input = open("data_csr_ipcn.der", "rb").read()

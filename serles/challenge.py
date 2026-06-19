@@ -17,14 +17,6 @@ from .configloader import get_config
 from .models import db, AuthzStatus, ChallengeStatus, ChallengeTypes, IdentifierTypes, OrderStatus
 from .exceptions import ACMEError
 
-config = {}
-backend = None
-
-
-def init_config():
-    global config, backend
-    config, backend = get_config()
-
 
 def verify_challenge(challenge):
     """ verify a challenge
@@ -92,6 +84,8 @@ def http_challenge(challenge):  # RFC8555 §8.3
         tuple(str,str): problem detail type of the error and  textual
         description, or (None,None).
     """
+    config, _ = get_config()
+
     host = challenge.authorization.identifier.value
     ident_type = challenge.authorization.identifier.type
     token = challenge.token
@@ -130,7 +124,7 @@ def http_challenge(challenge):  # RFC8555 §8.3
         sock = socket.fromfd(r.raw.fileno(), socket.AF_INET, socket.SOCK_STREAM)
         remote_ip, *_ = sock.getpeername()
 
-    reject = additional_ip_address_checks(remote_ip, host, is_ipaddress)
+    reject = additional_ip_address_checks(config, remote_ip, host, is_ipaddress)
     if reject:
         return "rejectedIdentifier", reject
 
@@ -157,6 +151,8 @@ def dns_challenge(challenge):  # RFC8555 §8.4
         tuple(str,str): problem detail type of the error and  textual
         description, or (None,None).
     """
+    config, _ = get_config()
+
     host = challenge.authorization.identifier.value
 
     if challenge.authorization.wildcard:
@@ -200,6 +196,8 @@ def alpn_challenge(challenge):  # RFC 8737 §3
     """
     ALPN_PROTOCOL = "acme-tls/1"
 
+    config, _ = get_config()
+
     host = check_host = challenge.authorization.identifier.value
     ident_type = challenge.authorization.identifier.type
 
@@ -221,7 +219,7 @@ def alpn_challenge(challenge):  # RFC 8737 §3
         ) as ssock:
             remote_ip, *_ = ssock.getpeername()
 
-            reject = additional_ip_address_checks(remote_ip, host, is_ipaddress)
+            reject = additional_ip_address_checks(config, remote_ip, host, is_ipaddress)
             if reject:
                 return "rejectedIdentifier", reject
 
@@ -276,7 +274,7 @@ def key_authorization(challenge):
     return f"{token}.{thumbprint}"
 
 
-def additional_ip_address_checks(remote_ip, host, is_ipaddress=False):
+def additional_ip_address_checks(config, remote_ip, host, is_ipaddress=False):
     """ perform additional checks on the remote IP address
 
     These are useful in an enterprise setting, but not required by spec.

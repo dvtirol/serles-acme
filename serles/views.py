@@ -18,16 +18,11 @@ from .models import (
     Order,
     OrderStatus,
 )
-from .challenge import init_config as c_init_config, verify_challenge
-from .certificate import init_config as x_init_config, check_csr_and_return_cert
+from .challenge import verify_challenge
+from .certificate import check_csr_and_return_cert
 from .exceptions import ACMEError
 
 api = Api()
-
-
-def init_config():
-    c_init_config()
-    x_init_config()
 
 
 @api.resource("/")

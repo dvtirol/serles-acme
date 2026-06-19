@@ -8,15 +8,6 @@ from .models import IdentifierTypes
 from .exceptions import ACMEError
 
 
-config = {}
-backend = None
-
-
-def init_config():
-    global config, backend
-    config, backend = get_config()
-
-
 def check_csr_and_return_cert(csr_der, order):
     """ validate CSR and pass to backend
 
@@ -33,6 +24,7 @@ def check_csr_and_return_cert(csr_der, order):
     Raises:
         ACMEError: CSR was rejected (by us) or the backend refused to sign it.
     """
+    config, backend = get_config()
 
     csr = x509.load_der_x509_csr(csr_der)
     try:
