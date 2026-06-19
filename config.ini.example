@@ -1,13 +1,8 @@
 [serles]
-# Database to use, given as a URI understood by SQLAlchemy.
-# Note: The database stores the Account id-to-key mapping. Some clients (e.g.
-# certbot) will after registering assume their public key is known to Serles
-# and only identify themselves through their account id. Hence, the database
-# should be persistent. All other data can be ephemeral, and is purged by
-# Serles regularly (/// is relative path, //// absolute. yes, really.).
-# If you don't care about account keys, and given that you are running only 1
-# process and 1 thread, you can use an in-memory database by setting it to
-# "sqlite:///:memory:".
+# Database to use, given as a URI understood by SQLAlchemy. The `Account` table
+# must persist forever; all other data can be ephemeral and is purged by Serles
+# automatically on a regular schedule.
+# Note: For sqlite, /// is a relative path, //// an absolute one. Yes, really.
 database = sqlite:////etc/serles/db.sqlite
 # Mariadb is also supported, but you will need to install pymysql from pypi.
 #database = mysql+pymysql://user:passwd@localhost/db_acmeproxy

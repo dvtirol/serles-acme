@@ -196,22 +196,3 @@ Dependencies
 ------------
 
 Dependencies are stated in ``setup.py``.
-
-Notes on threads and databases
-------------------------------
-
-The database is used to hold the state between requests, but once an order has
-been fulfilled (or rejected), all data relating to it is no longer used (and
-actually deleted when the order expires, 7 days after its creation). It is
-therefore sufficient to store this database in-memory. However, this in-memory
-database is not thread safe. Depending on your requirements, either set
-``database`` in ``config.ini`` to an on-disk DB, or (when using gunicorn) limit
-the number of worker processes and threads to 1.
-
-Note that certbot tries to re-use account IDs, so when using an in-memory DB
-pass ``--pre-hook 'rm -rf /etc/letsencrypt/accounts'`` to it, to avoid this
-behaviour.
-
-Note that when using the EJBCA backend, you should only allow a single
-connection at a time (i.e. single-threading), since there are concurrency
-problems in the EJBCA software.
