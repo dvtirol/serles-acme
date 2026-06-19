@@ -24,6 +24,7 @@ def mock_config(sign_rv=None):
             "subjectNameTemplate": "{SAN[0]}",
             "allowWildcards": False,
             "allowIpIdentifiers": False,
+            "removeRootCAFromChain": False,
         }, backend
     return get_config
 

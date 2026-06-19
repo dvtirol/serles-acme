@@ -1,6 +1,7 @@
 import ipaddress
 
 from cryptography import x509  # python3-cryptography.x86_64
+from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization
 
 from .configloader import get_config
@@ -81,6 +82,9 @@ def check_csr_and_return_cert(csr_der, order):
     if type(certificate) == str:
         certificate = certificate.encode("utf-8")
 
+    if config["removeRootCAFromChain"]:
+        certificate = remove_root_ca(certificate)
+
     return certificate
 
 
@@ -101,3 +105,48 @@ def unstringify_ip(ident):
     if ident.type == IdentifierTypes.ip:
         return ipaddress.ip_address(ident.value)
     return ident.value
+
+
+def remove_root_ca(pem_chain):
+    """ Removes Root CA Certificate from PEM-Chain
+
+    Some CAs return the full certificate chain, including the root certificate.
+    RFC5246 §7.4.2 (c.f. 'certificate_list') explicitly allows omitting the
+    final (self-signed) CA certificate. So we snip it off if requested.
+
+    Args:
+        pem_chain (bytes): concatenated PEM encoded certificates
+
+    Returns:
+        bytes: same certificates, but excluding the optional self-signed Root
+    """
+
+    certs = x509.load_pem_x509_certificates(pem_chain)
+
+    if len(certs) > 1 and is_self_signed(certs[-1]):
+        certs.pop(-1)
+
+    return b"".join([
+        cert.public_bytes(serialization.Encoding.PEM) for cert in certs
+    ])
+
+
+def is_self_signed(cert):
+    """ Checks whether a certificate is self-signed.
+
+    Args:
+        cert (cryptography.x509.Certificate): certificate to test.
+
+    Returns:
+        bool: True iff the certificate is self-signed.
+    """
+
+    # Note: OpenSSL validates that cert.subject == cert.issuer && SKID == AKID,
+    # but AKID is often absent on root certificates.
+
+    try:
+        cert.verify_directly_issued_by(cert)
+    except (ValueError, TypeError, InvalidSignature):
+        return False
+    else:
+        return True
