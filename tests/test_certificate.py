@@ -11,7 +11,7 @@ example_inval = Identifier(value="example.inval", type=IdentifierTypes.dns)
 example_test = Identifier(value="example.test", type=IdentifierTypes.dns)
 example_ip = Identifier(value="2001:DB8::1", type=IdentifierTypes.ip)
 
-def mock_config(sign_rv=None):
+def mock_config(sign_rv=None, cfg={}):
     def get_config():
         backend = MockBackend.Backend([])
         if sign_rv:
@@ -25,6 +25,7 @@ def mock_config(sign_rv=None):
             "allowWildcards": False,
             "allowIpIdentifiers": False,
             "removeRootCAFromChain": False,
+            **cfg,
         }, backend
     return get_config
 
@@ -60,7 +61,20 @@ class ChallengeFunctionTester(unittest.TestCase):
             mock_order.identifiers = [example_test]
 
             result = main.check_csr_and_return_cert(csr_input, mock_order)
-            good = open("data_pkcs7.bin", "rb").read()
+            good = open("data_leaf.pem", "rb").read()
+            self.assertEqual(result, good)
+
+    def test_check_csr_and_return_cert_trimroot(self):
+        csr_input = open("data_example.test.csr.bin", "rb").read()
+        mock_order = Mock()
+        mock_order.account.contact = None
+        mock_order.identifiers = [example_test]
+
+        with unittest.mock.patch.object(
+            main, "get_config", mock_config(cfg={"removeRootCAFromChain": True})
+        ):
+            result = main.check_csr_and_return_cert(csr_input, mock_order)
+            good = open("data_leaf.pem", "rb").read()
             self.assertEqual(result, good)
 
     def test_check_csr_and_return_cert_strconv(self):
@@ -118,7 +132,7 @@ class ChallengeFunctionTester(unittest.TestCase):
         mock_order.identifiers = [example_test]
 
         result = main.check_csr_and_return_cert(csr_input, mock_order)
-        good = open("data_pkcs7.bin", "rb").read()
+        good = open("data_leaf.pem", "rb").read()
         self.assertEqual(result, good)
 
     def test_check_csr_and_return_cert_ipcn(self):
@@ -128,7 +142,7 @@ class ChallengeFunctionTester(unittest.TestCase):
         mock_order.identifiers = [example_ip]
 
         result = main.check_csr_and_return_cert(csr_input, mock_order)
-        good = open("data_pkcs7.bin", "rb").read()
+        good = open("data_leaf.pem", "rb").read()
         self.assertEqual(result, good)
 
     def test_check_csr_and_return_cert_nocnorsan(self):
@@ -144,3 +158,27 @@ class ChallengeFunctionTester(unittest.TestCase):
             csr_input,
             mock_order,
         )
+
+    def test_remove_root_ca(self):
+        with open("data_cacert.pem", "rb") as f:
+            ca = f.read()
+        with open("data_xcacert.pem", "rb") as f:
+            xca = f.read()
+        with open("data_leaf.pem", "rb") as f:
+            leaf = f.read()
+        with open("data_xleaf.pem", "rb") as f:
+            xleaf = f.read()
+
+        # should not get modified:
+
+        # single self signed cert
+        self.assertEqual(main.remove_root_ca(ca), ca)
+        # single cross-signed cert
+        self.assertEqual(main.remove_root_ca(xca), xca)
+        # chain ending in cross-signed cert
+        self.assertEqual(main.remove_root_ca(xleaf+xca), xleaf+xca)
+
+        # expect trimming to occur:
+
+        # chain ending in self-signed cert
+        self.assertEqual(main.remove_root_ca(leaf+ca), leaf)

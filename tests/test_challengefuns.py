@@ -10,7 +10,6 @@ from copy import deepcopy
 
 import serles.challenge as main
 from serles.models import IdentifierTypes
-import MockBackend
 import dns.resolver
 
 
