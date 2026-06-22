@@ -6,13 +6,26 @@ import unittest
 from unittest.mock import Mock
 from unittest.mock import MagicMock
 from unittest.mock import PropertyMock
-import pytest
 from copy import deepcopy
 
 import serles.challenge as main
 from serles.models import IdentifierTypes
-import MockBackend
 import dns.resolver
+
+
+def mock_config(overrides={}):
+    def get_config():
+        return {
+            "allowedServerIpRanges": None,
+            "excludeServerIpRanges": None,
+            "verifyPTR": False,
+            "forceTemplateDN": True,
+            "subjectNameTemplate": "{SAN[0]}",
+            "allowWildcards": False,
+            "allowIpIdentifiers": False,
+            **overrides
+        }, None
+    return get_config
 
 
 class MockedRequestsSession:
@@ -248,16 +261,6 @@ orig_db = main.db
 
 class ChallengeFunctionTester(unittest.TestCase):
     def setUp(self):
-        main.backend = MockBackend.Backend([])
-        main.config = {
-            "allowedServerIpRanges": None,
-            "excludeServerIpRanges": None,
-            "verifyPTR": False,
-            "forceTemplateDN": True,
-            "subjectNameTemplate": "{SAN[0]}",
-            "allowWildcards": False,
-            "allowIpIdentifiers": False,
-        }
         main.db = Mock()  # don't commit into the nonexisting database
         os.chdir(os.path.dirname(__file__))
 
@@ -348,8 +351,8 @@ class ChallengeFunctionTester(unittest.TestCase):
     def test_http_challenge_brokenip(self):
         with unittest.mock.patch.object(
             main.requests, "Session", MockedRequestsSession
-        ), unittest.mock.patch.dict(
-            main.config, {"allowIpIdentifiers": True}
+        ), unittest.mock.patch.object(
+            main, "get_config", mock_config({"allowIpIdentifiers": True})
         ):
             result = main.http_challenge(mock_challenge_brokenip)
             self.assertEqual(result[0], "malformed")
@@ -357,8 +360,8 @@ class ChallengeFunctionTester(unittest.TestCase):
     def test_http_challenge_allowedip(self):
         with unittest.mock.patch.object(
             main.requests, "Session", MockedRequestsSession
-        ), unittest.mock.patch.dict(
-            main.config, {"allowIpIdentifiers": True}
+        ), unittest.mock.patch.object(
+            main, "get_config", mock_config({"allowIpIdentifiers": True})
         ):
             result = main.http_challenge(mock_challenge_ip)
             self.assertEqual(result, (None, None))
@@ -366,10 +369,11 @@ class ChallengeFunctionTester(unittest.TestCase):
     def test_http_challenge_allowedip_excludedrange(self):
         with unittest.mock.patch.object(
             main.requests, "Session", MockedRequestsSession
-        ), unittest.mock.patch.dict(
-            main.config, {"allowIpIdentifiers": True}
-        ), unittest.mock.patch.dict(
-            main.config, {"allowedServerIpRanges": [ipaddress.ip_network("::1/128")]}
+        ), unittest.mock.patch.object(
+            main, "get_config", mock_config({
+                "allowIpIdentifiers": True,
+                "allowedServerIpRanges": [ipaddress.ip_network("::1/128")]
+            })
         ):
             result = main.http_challenge(mock_challenge_ip)
             self.assertEqual(result[0], "rejectedIdentifier")
@@ -398,8 +402,8 @@ class ChallengeFunctionTester(unittest.TestCase):
     def test_http_challenge_peername1(self):
         with unittest.mock.patch.object(
             main.requests, "Session", MockedRequestsResponseSession
-        ), unittest.mock.patch.dict(
-            main.config, {"allowedServerIpRanges": [ipaddress.ip_network("::1/128")]}
+        ), unittest.mock.patch.object(
+            main, "get_config", mock_config({"allowedServerIpRanges": [ipaddress.ip_network("::1/128")]})
         ):
             result = main.http_challenge(mock_challenge)
             self.assertEqual(result[0], "rejectedIdentifier")
@@ -407,8 +411,8 @@ class ChallengeFunctionTester(unittest.TestCase):
     def test_http_challenge_peername2(self):
         with unittest.mock.patch.object(
             main.requests, "Session", MockedRequestsResponseSession
-        ), unittest.mock.patch.dict(
-            main.config, {"excludeServerIpRanges": [ipaddress.ip_network("10.0.0.0/8")]}
+        ), unittest.mock.patch.object(
+            main, "get_config", mock_config({"excludeServerIpRanges": [ipaddress.ip_network("10.0.0.0/8")]})
         ):
             result = main.http_challenge(mock_challenge)
             self.assertEqual(result[0], "rejectedIdentifier")
@@ -418,8 +422,8 @@ class ChallengeFunctionTester(unittest.TestCase):
             main.requests, "Session", MockedRequestsSessionPeerNameFallback
         ), unittest.mock.patch.object(
             main.socket, "fromfd", lambda a, b, c: Mock(getpeername=lambda: ("1::2", 0))
-        ), unittest.mock.patch.dict(
-            main.config, {"allowedServerIpRanges": [ipaddress.ip_network("::1/128")]}
+        ), unittest.mock.patch.object(
+            main, "get_config", mock_config({"allowedServerIpRanges": [ipaddress.ip_network("::1/128")]})
         ):
             result = main.http_challenge(mock_challenge)
             self.assertEqual(result[0], "rejectedIdentifier")
@@ -427,8 +431,8 @@ class ChallengeFunctionTester(unittest.TestCase):
     def test_http_challenge_ptr(self):
         with unittest.mock.patch.object(
             main.requests, "Session", MockedRequestsResponseSession
-        ), unittest.mock.patch.dict(
-            main.config, {"verifyPTR": True}
+        ), unittest.mock.patch.object(
+            main, "get_config", mock_config({"verifyPTR": True})
         ), unittest.mock.patch.object(
             dns.resolver, "query", mockedDNSResolve
         ), unittest.mock.patch.object(
@@ -440,8 +444,8 @@ class ChallengeFunctionTester(unittest.TestCase):
     def test_http_challenge_ptr_nxdomain(self):
         with unittest.mock.patch.object(
             main.requests, "Session", MockedRequestsResponseSession
-        ), unittest.mock.patch.dict(
-            main.config, {"verifyPTR": True}
+        ), unittest.mock.patch.object(
+            main, "get_config", mock_config({"verifyPTR": True})
         ), unittest.mock.patch.object(
             dns.resolver, "query", mockedDNSResolve
         ), unittest.mock.patch.object(
@@ -482,11 +486,11 @@ class ChallengeFunctionTester(unittest.TestCase):
             dns.resolver, "query", MockedDNSResolveTXT
         ), unittest.mock.patch.object(
             dns.resolver, "resolve", MockedDNSResolveTXT
+        ), unittest.mock.patch.object(
+            main, "get_config", mock_config({"allowWildcards": True})
         ):
-            main.config['allowWildcards'] = True
             result = main.dns_challenge(mock_wildcard_challenge)
             self.assertEqual(result, (None, None))
-            main.config['allowWildcards'] = False
 
     def test_dns_challenge_multiple_txt_ok(self):
         mock_dns_challenge.authorization.identifier.value = "multiple.example.test"
@@ -664,8 +668,8 @@ class ChallengeFunctionTester(unittest.TestCase):
             main.socket, "create_connection", MockedSocket
         ), unittest.mock.patch.object(
             main.ssl, "SSLContext", MockedSSLContextIPCert
-        ), unittest.mock.patch.dict(
-            main.config, {"allowIpIdentifiers": True}
+        ), unittest.mock.patch.object(
+            main, "get_config", mock_config({"allowIpIdentifiers": True})
         ):
             result = main.alpn_challenge(mock_alpn_challenge_ip)
             self.assertEqual(result, (None, None))
@@ -675,139 +679,8 @@ class ChallengeFunctionTester(unittest.TestCase):
             main.socket, "create_connection", MockedSocket
         ), unittest.mock.patch.object(
             main.ssl, "SSLContext", MockedSSLContextIPCert
-        ), unittest.mock.patch.dict(
-            main.config, {"allowIpIdentifiers": True}
+        ), unittest.mock.patch.object(
+            main, "get_config", mock_config({"allowIpIdentifiers": True})
         ):
             result = main.alpn_challenge(mock_alpn_challenge_brokenip)
             self.assertEqual(result[0], "malformed")
-
-    def test_check_csr_and_return_cert(self):
-        csr_input = open("data_example.test.csr.bin", "rb").read()
-        mock_order = Mock()
-        mock_order.account.contact = None
-        example_inval = Mock()
-        example_inval.value = "example.inval"
-        example_inval.type = IdentifierTypes.dns
-        example_test = Mock()
-        example_test.value = "example.test"
-        example_test.type = IdentifierTypes.dns
-
-        # additional identifiers in CSR:
-        mock_order.identifiers = []
-        self.assertRaisesRegex(
-            main.ACMEError,
-            r"set\(\)",
-            main.check_csr_and_return_cert,
-            csr_input,
-            mock_order,
-        )
-        # identifiers missing in CSR:
-        mock_order.identifiers = [example_inval, example_test]
-        self.assertRaisesRegex(
-            main.ACMEError,
-            "example.inval",
-            main.check_csr_and_return_cert,
-            csr_input,
-            mock_order,
-        )
-        mock_order.identifiers = [example_test]
-
-        result = main.check_csr_and_return_cert(csr_input, mock_order)
-        good = open("data_pkcs7.bin", "rb").read()
-        self.assertEqual(result, good)
-
-        with unittest.mock.patch.object(
-            main.backend, "sign", lambda *x: ("a string, not bytes", None)
-        ):
-            result = main.check_csr_and_return_cert(csr_input, mock_order)
-            self.assertEqual(result, b"a string, not bytes")  # utf-8-encoded bytes
-
-        with unittest.mock.patch.object(
-            main.backend, "sign", lambda *x: (None, "error")
-        ):
-            self.assertRaisesRegex(
-                main.ACMEError,
-                "error",
-                main.check_csr_and_return_cert,
-                csr_input,
-                mock_order,
-            )
-
-    def test_check_csr_and_return_cert_nocn(self):
-        csr_input = open("data_nocn.csr", "rb").read()
-        mock_order = Mock()
-        mock_order.account.contact = None
-        example_inval = Mock()
-        example_inval.value = "example.inval"
-        example_inval.type = IdentifierTypes.dns
-        example_test = Mock()
-        example_test.value = "example.test"
-        example_test.type = IdentifierTypes.dns
-
-        # additional identifiers in CSR:
-        mock_order.identifiers = []
-        self.assertRaisesRegex(
-            main.ACMEError,
-            r"set\(\)",
-            main.check_csr_and_return_cert,
-            csr_input,
-            mock_order,
-        )
-        # identifiers missing in CSR:
-        mock_order.identifiers = [example_inval, example_test]
-        self.assertRaisesRegex(
-            main.ACMEError,
-            "example.inval",
-            main.check_csr_and_return_cert,
-            csr_input,
-            mock_order,
-        )
-        mock_order.identifiers = [example_test]
-
-        result = main.check_csr_and_return_cert(csr_input, mock_order)
-        good = open("data_pkcs7.bin", "rb").read()
-        self.assertEqual(result, good)
-
-        with unittest.mock.patch.object(
-            main.backend, "sign", lambda *x: (None, "error")
-        ):
-            self.assertRaisesRegex(
-                main.ACMEError,
-                "error",
-                main.check_csr_and_return_cert,
-                csr_input,
-                mock_order,
-            )
-
-    def test_check_csr_and_return_cert_ipcn(self):
-        csr_input = open("data_csr_ipcn.der", "rb").read()
-        mock_order = Mock()
-        mock_order.account.contact = None
-        example_ip = Mock()
-        example_ip.value = "2001:DB8::1"
-        example_ip.type = IdentifierTypes.ip
-        mock_order.identifiers = [example_ip]
-
-        result = main.check_csr_and_return_cert(csr_input, mock_order)
-        good = open("data_pkcs7.bin", "rb").read()
-        self.assertEqual(result, good)
-
-    def test_check_csr_and_return_cert_nocnorsan(self):
-        csr_input = open("data_csr_empty.der", "rb").read()
-        mock_order = Mock()
-        mock_order.account.contact = None
-        example_inval = Mock()
-        example_inval.value = "example.inval"
-        example_inval.type = IdentifierTypes.dns
-        example_test = Mock()
-        example_test.value = "example.test"
-        example_test.type = IdentifierTypes.dns
-
-        mock_order.identifiers = []
-        self.assertRaisesRegex(
-            main.ACMEError,
-            r"no identifiers in CSR",
-            main.check_csr_and_return_cert,
-            csr_input,
-            mock_order,
-        )

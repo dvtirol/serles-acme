@@ -147,3 +147,16 @@ class ConfigFunctionTester(unittest.TestCase):
                 main.configloader.load_config_and_backend,
                 f.name,
             )
+        with tempfile.NamedTemporaryFile() as f:
+            f.write(b"[serles]\n")
+            f.write(b"database=sqlite:///:memory:\n")
+            f.write(b"backend=MockBackend\n")
+            f.write(b"subjectNameTemplate=x\n")
+            f.write(b"removeRootCAFromChain=x\n")
+            f.flush()
+            self.assertRaisesRegex(
+                ConfigError,
+                "removeRootCAFromChain",
+                main.configloader.load_config_and_backend,
+                f.name,
+            )

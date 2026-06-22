@@ -39,6 +39,11 @@ subjectNameTemplate = CN={SAN[0]}
 # subjectNameTemplate above:
 forceTemplateDN = true
 
+# the certificate chain returned by the backend CA might contain the
+# self-signed root certificate. Enable this option to remove it from issued
+# certificate chains. Cross-signed roots are not removed by this option.
+removeRootCAFromChain = false
+
 # Backend configuration depends on the loaded backend. You will only need the
 # section corresponding to the backend enabled above; others can be removed.
 

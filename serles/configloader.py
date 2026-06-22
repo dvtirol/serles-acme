@@ -119,6 +119,13 @@ def load_config_and_backend(filename):
         ) from None
 
     try:
+        config["removeRootCAFromChain"] = cparser["serles"].getboolean("removeRootCAFromChain", fallback=False)
+    except ValueError:
+        raise ConfigError(
+            "[serles]removeRootCAFromChain= must be 'true' or 'false'"
+        ) from None
+
+    try:
         config["verifyPTR"] = cparser["serles"].getboolean("verifyPTR", fallback=False)
     except ValueError:
         raise ConfigError("[serles]verifyPTR= must be 'true' or 'false'") from None
