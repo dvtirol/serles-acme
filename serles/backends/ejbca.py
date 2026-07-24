@@ -8,7 +8,6 @@ from cryptography import x509  # python3-cryptography.x86_64
 from cryptography.x509.oid import PublicKeyAlgorithmOID as PKOID
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.serialization import pkcs7
-from cryptography.hazmat.backends import default_backend as x509_backend
 
 
 class EjbcaBackend:
@@ -87,7 +86,7 @@ class EjbcaBackend:
     def sign(self, csr, subjectDN, subjectAltNames, email):
         subjectAltName = ",".join(typed_ident(name) for name in subjectAltNames)
 
-        csr_obj = x509.load_pem_x509_csr(csr, x509_backend())
+        csr_obj = x509.load_pem_x509_csr(csr)
         csr_der = csr_obj.public_bytes(serialization.Encoding.DER)
 
         # find out which kind of public key the CSR is using, and select the
