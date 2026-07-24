@@ -163,7 +163,7 @@ def pkcs7_to_pem_chain(pkcs7_input):
     """
 
     certs = pkcs7.load_der_pkcs7_certificates(pkcs7_input)
-    return "\n".join(
+    return "".join(
         [
             cert.public_bytes(serialization.Encoding.PEM).decode("ascii")
             for cert in certs
