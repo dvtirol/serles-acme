@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.abspath(".."))
 
 # -- Project information -----------------------------------------------------
 
-project = "serles"
+project = "Serles"
 copyright = "2020, Daten-Verarbeitung-Tirol GmbH"
 author = "Daten-Verarbeitung-Tirol GmbH"
 
@@ -100,6 +100,13 @@ html_static_path = ["_static"]
 # 'searchbox.html']``.
 #
 # html_sidebars = {}
+html_sidebars = {
+    '**': [
+        'about.html',
+        'searchfield.html',
+        'navigation.html',
+    ]
+}
 
 
 # -- Options for HTMLHelp output ---------------------------------------------
