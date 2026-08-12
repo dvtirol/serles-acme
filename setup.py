@@ -10,7 +10,7 @@ with open(path.join(this_directory, 'README.rst'), encoding='utf-8') as f:
 
 setup(
     name="serles-acme",
-    version="1.2.0",
+    version="1.3.0",
     packages=find_packages(),
     python_requires=">=3.9",
     scripts=["bin/serles"],
