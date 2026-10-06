@@ -130,7 +130,9 @@ def http_challenge(challenge):  # RFC8555 §8.3
 
     # consume the response body (and close connection)
     try:
-        found = r.text
+        # RFC8555 §8.3 (4): "The server SHOULD ignore whitespace characters at
+        # the end of the body."
+        found = r.text.rstrip()
     except (requests.exceptions.ChunkedEncodingError, requests.ReadTimeout) as e:
         return "connection", f"server did not send a proper response"
 

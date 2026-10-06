@@ -36,6 +36,14 @@ class MockedRequestsSession:
         return mock_response
 
 
+class MockedRequestsSessionTrailingWS:
+    def get(self, *args, **kwargs):
+        mock_response = Mock()
+        mock_response.raw.connection.sock.getpeername = lambda: ("", "")
+        mock_response.text = "token.i9Qes9RMOIbciQjAy6pzYwcZw8IKjKxPP7UZ8fTetps\r\n"
+        return mock_response
+
+
 class MockedRequestsSessionPeerNameFallback:
     def get(self, *args, **kwargs):
         mock_response = Mock()
@@ -337,6 +345,13 @@ class ChallengeFunctionTester(unittest.TestCase):
     def test_http_challenge(self):
         with unittest.mock.patch.object(
             main.requests, "Session", MockedRequestsSession
+        ):
+            result = main.http_challenge(mock_challenge)
+            self.assertEqual(result, (None, None))
+
+    def test_http_challenge_trailing_ws(self):
+        with unittest.mock.patch.object(
+            main.requests, "Session", MockedRequestsSessionTrailingWS
         ):
             result = main.http_challenge(mock_challenge)
             self.assertEqual(result, (None, None))
